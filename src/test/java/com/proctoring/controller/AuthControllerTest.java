@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.proctoring.domain.Role;
 import com.proctoring.dto.auth.RegisterRequest;
+import com.proctoring.security.JwtAuthenticationFilter;
+import com.proctoring.security.JwtService;
 import com.proctoring.service.AuthService;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,12 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockBean
+    private JwtService jwtService;
 
     @Test
     void registerValidatesPasswordLength() throws Exception {
