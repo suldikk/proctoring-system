@@ -1,5 +1,6 @@
 package com.proctoring.service;
 
+import com.proctoring.domain.Role;
 import com.proctoring.dto.auth.LoginRequest;
 import com.proctoring.dto.auth.LoginResponse;
 import com.proctoring.dto.auth.RegisterRequest;
@@ -8,6 +9,7 @@ import com.proctoring.mapper.UserMapper;
 import com.proctoring.repository.UserRepository;
 import com.proctoring.repository.entity.UserEntity;
 import com.proctoring.security.JwtService;
+import java.util.Set;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,9 @@ public class AuthService {
         String normalizedEmail = request.email().toLowerCase();
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("User with this email already exists");
+        }
+        if (!Set.of(Role.STUDENT).equals(request.roles())) {
+            throw new IllegalArgumentException("Self-registration is only available for students");
         }
 
         UserEntity user = new UserEntity();
