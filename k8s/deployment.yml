@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proctoring-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proctoring-api
+  template:
+    metadata:
+      labels:
+        app: proctoring-api
+    spec:
+      containers:
+        - name: proctoring-api
+          image: proctoring-system:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/proctoring
+            - name: DB_USER
+              value: proctoring
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: proctoring-secrets
+                  key: db-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: proctoring-secrets
+                  key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proctoring-api
+spec:
+  selector:
+    app: proctoring-api
+  ports:
+    - port: 8080
+      targetPort: 8080
