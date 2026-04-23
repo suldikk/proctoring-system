@@ -89,4 +89,26 @@ class AuthServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("User with this email already exists");
     }
+
+    @Test
+    void registerRejectsPrivilegedRoles() {
+        AuthService authService = new AuthService(
+                userRepository,
+                passwordEncoder,
+                jwtService,
+                new UserMapper(),
+                auditService
+        );
+        RegisterRequest request = new RegisterRequest(
+                "admin@example.com",
+                "password123",
+                "Admin",
+                Set.of(Role.ADMIN)
+        );
+        when(userRepository.existsByEmail("admin@example.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Self-registration is only available for students");
+    }
 }

@@ -42,10 +42,10 @@ POST /api/auth/register
 Content-Type: application/json
 
 {
-  "email": "proctor@example.com",
+  "email": "student@example.com",
   "password": "password123",
-  "fullName": "Main Proctor",
-  "roles": ["PROCTOR"]
+  "fullName": "Student One",
+  "roles": ["STUDENT"]
 }
 ```
 
@@ -103,6 +103,12 @@ Run the app:
 
 ```bash
 mvn spring-boot:run
+```
+
+For local demo users with privileged roles, run with the `local` profile:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 Health check:
