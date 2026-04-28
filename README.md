@@ -117,6 +117,14 @@ Health check:
 curl http://localhost:8080/actuator/health
 ```
 
+Camera proctoring demo:
+
+```text
+http://localhost:8080/proctoring-camera/
+```
+
+Run with the `local` profile, log in as `proctor@example.com` / `password123`, create an exam session through the API if none exists, then select it on the page and start the camera. The browser detects `FACE_NOT_DETECTED`, `MULTIPLE_FACES`, and `FACE_NOT_CENTERED` events and stores them through the existing proctoring event API.
+
 ## Tests
 
 Unit and web tests:
