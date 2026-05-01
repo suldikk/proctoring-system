@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ExamSessionRepository extends JpaRepository<ExamSessionEntity, UUID> {
 
     List<ExamSessionEntity> findByStudentId(UUID studentId);
+
+    List<ExamSessionEntity> findByProctorId(UUID proctorId);
 }

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Панель проктора</title>
+    <link rel="stylesheet" href="/proctor-dashboard/styles.css">
+</head>
+<body>
+<main class="layout">
+    <aside class="sidebar">
+        <header>
+            <p class="eyebrow">Консоль проктора</p>
+            <h1>Мониторинг экзамена</h1>
+        </header>
+
+        <form class="login" id="loginForm">
+            <label>
+                Email проктора
+                <input id="email" type="email" value="proctor@example.com" autocomplete="username" required>
+            </label>
+            <label>
+                Пароль
+                <input id="password" type="password" value="password123" autocomplete="current-password" required>
+            </label>
+            <button type="submit">Войти</button>
+        </form>
+
+        <section>
+            <div class="section-title">
+                <h2>Назначенные сессии</h2>
+                <button id="refreshSessions" type="button" disabled>Обновить</button>
+            </div>
+            <div class="sessions" id="sessions"></div>
+        </section>
+    </aside>
+
+    <section class="monitor">
+        <div class="topbar">
+            <div>
+                <p class="eyebrow">Выбранная сессия</p>
+                <h2 id="sessionTitle">Сессия не выбрана</h2>
+            </div>
+            <div class="topbar-actions">
+                <button id="clearArtifacts" class="danger-button" type="button" disabled>Очистить данные</button>
+                <div class="risk" id="riskBadge">Нет данных</div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div>
+                <span>Всего событий</span>
+                <strong id="totalEvents">0</strong>
+            </div>
+            <div>
+                <span>Критичных событий</span>
+                <strong id="criticalEvents">0</strong>
+            </div>
+            <div>
+                <span>Последнее обновление</span>
+                <strong id="lastUpdate">-</strong>
+            </div>
+        </div>
+
+        <section class="event-stream">
+            <div class="section-title">
+                <h2>Поток нарушений</h2>
+                <button id="refreshEvents" type="button" disabled>Обновить</button>
+            </div>
+            <ol id="events"></ol>
+        </section>
+
+        <section class="media-grid">
+            <div>
+                <div class="section-title">
+                    <h2>Снимки камеры</h2>
+                    <button id="refreshSnapshots" type="button" disabled>Обновить</button>
+                </div>
+                <div class="snapshots" id="snapshots"></div>
+            </div>
+            <div>
+                <div class="section-title">
+                    <h2>Фрагменты записи</h2>
+                    <button id="refreshRecordings" type="button" disabled>Обновить</button>
+                </div>
+                <ol class="recordings" id="recordings"></ol>
+            </div>
+        </section>
+    </section>
+</main>
+
+<script src="/proctor-dashboard/app.js"></script>
+</body>
+</html>

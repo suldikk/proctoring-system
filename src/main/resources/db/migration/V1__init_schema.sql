@@ -40,7 +40,30 @@ create table audit_logs (
     created_at timestamp with time zone not null
 );
 
+create table proctoring_snapshots (
+    id uuid primary key,
+    session_id uuid not null references exam_sessions(id) on delete cascade,
+    file_path varchar(500) not null,
+    content_type varchar(120) not null,
+    size_bytes bigint not null,
+    sha256 varchar(64) not null,
+    captured_at timestamp with time zone not null
+);
+
+create table proctoring_recording_chunks (
+    id uuid primary key,
+    session_id uuid not null references exam_sessions(id) on delete cascade,
+    chunk_index integer not null,
+    file_path varchar(500) not null,
+    content_type varchar(120) not null,
+    size_bytes bigint not null,
+    sha256 varchar(64) not null,
+    uploaded_at timestamp with time zone not null
+);
+
 create index idx_exam_sessions_student_id on exam_sessions(student_id);
 create index idx_exam_sessions_proctor_id on exam_sessions(proctor_id);
 create index idx_proctoring_events_session_id on proctoring_events(session_id);
 create index idx_audit_logs_actor_email on audit_logs(actor_email);
+create index idx_proctoring_snapshots_session_id on proctoring_snapshots(session_id);
+create index idx_recording_chunks_session_id on proctoring_recording_chunks(session_id);

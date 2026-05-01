@@ -1,0 +1,25 @@
+body {
+  width: 260px;
+  margin: 0;
+  padding: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #182027;
+  background: #ffffff;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+p {
+  margin: 0 0 8px;
+  color: #52616b;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.hint {
+  margin-bottom: 0;
+  color: #0b7a75;
+}
