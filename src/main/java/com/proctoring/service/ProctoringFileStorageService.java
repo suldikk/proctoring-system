@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,6 +68,26 @@ public class ProctoringFileStorageService {
             throw new IllegalArgumentException("Stored file was not found");
         }
         return new PathResource(path);
+    }
+
+    public void deleteSessionFiles(UUID sessionId) {
+        Path directory = storageRoot.resolve(sessionId.toString()).normalize();
+        if (!directory.startsWith(storageRoot) || !Files.exists(directory)) {
+            return;
+        }
+
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException exception) {
+                            throw new IllegalArgumentException("Could not delete stored proctoring files");
+                        }
+                    });
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Could not delete stored proctoring files");
+        }
     }
 
     private String safeContentType(MultipartFile file) {

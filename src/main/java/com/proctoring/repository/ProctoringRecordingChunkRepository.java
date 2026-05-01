@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProctoringRecordingChunkRepository extends JpaRepository<ProctoringRecordingChunkEntity, UUID> {
 
     List<ProctoringRecordingChunkEntity> findBySessionIdOrderByChunkIndexAsc(UUID sessionId);
+
+    long deleteBySessionId(UUID sessionId);
 }

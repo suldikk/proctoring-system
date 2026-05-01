@@ -1,64 +1,127 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Demo Exam</title>
+    <title>Демо-экзамен</title>
     <link rel="stylesheet" href="/exam-demo/styles.css">
 </head>
 <body>
-<main class="layout">
+<section class="auth-screen" id="authScreen">
+    <form class="auth-card" id="loginForm">
+        <p class="eyebrow">Вход студента</p>
+        <h1>Демо-экзамен по Java</h1>
+        <label>
+            ИИН студента
+            <input id="iin" type="text" value="010101300123" inputmode="numeric" autocomplete="username" maxlength="12" required>
+        </label>
+        <label>
+            Пароль
+            <input id="password" type="password" value="password123" autocomplete="current-password" required>
+        </label>
+        <label>
+            Язык интерфейса
+            <select id="languageSelect">
+                <option value="ru" selected>Русский</option>
+                <option value="kk">Қазақша</option>
+            </select>
+        </label>
+        <button type="submit">Войти</button>
+        <div class="auth-status" id="loginStatus">Введите ИИН студента и пароль, чтобы перейти к экзамену.</div>
+    </form>
+</section>
+
+<section class="extension-screen" id="extensionScreen" hidden>
+    <div class="auth-card">
+        <p class="eyebrow">Проверка расширения</p>
+        <h1>Включите расширение прокторинга</h1>
+        <div class="auth-status" id="extensionGateStatus">
+            Для перехода к экзамену включите расширение в браузере. После подключения экзамен откроется автоматически.
+        </div>
+        <button id="extensionLogoutButton" class="secondary" type="button">Выйти из аккаунта</button>
+    </div>
+</section>
+
+<div class="fullscreen-warning" id="fullscreenWarning" hidden>
+    <div>
+        <h2>Экзамен приостановлен</h2>
+        <p>Вернитесь в полноэкранный режим, чтобы продолжить тестирование.</p>
+        <button id="returnFullscreen" type="button">Вернуться в полноэкранный режим</button>
+    </div>
+</div>
+
+<main class="layout" id="examLayout" hidden>
     <section class="exam">
         <header class="exam-header">
             <div>
-                <p class="eyebrow">Student workspace</p>
-                <h1>Java Proctoring Demo Exam</h1>
+                <p class="eyebrow">Рабочее место студента</p>
+                <h1>Демо-экзамен по Java</h1>
             </div>
-            <div class="timer" id="timer">10:00</div>
+            <div class="timer-wrap">
+                <span>Осталось</span>
+                <strong id="timer">30:00</strong>
+            </div>
+            <button id="logoutButton" class="secondary logout-button" type="button">Выйти</button>
         </header>
 
-        <form class="login" id="loginForm">
-            <label>
-                Student email
-                <input id="email" type="email" value="student@example.com" autocomplete="username" required>
-            </label>
-            <label>
-                Password
-                <input id="password" type="password" value="password123" autocomplete="current-password" required>
-            </label>
-            <button type="submit">Sign in</button>
-        </form>
+        <div class="student-card">
+            <div>
+                <span>ФИО</span>
+                <strong id="studentName">Студент Демо</strong>
+            </div>
+            <div>
+                <span>Группа</span>
+                <strong id="studentGroup">ИС-21</strong>
+            </div>
+            <div>
+                <span>Дисциплина</span>
+                <strong id="disciplineName">Java</strong>
+            </div>
+            <div>
+                <span>Вопросов</span>
+                <strong id="questionCount">4</strong>
+            </div>
+        </div>
 
         <div class="session-row">
             <label>
-                Exam session
+                Экзаменационная сессия
                 <select id="sessionSelect"></select>
             </label>
-            <button id="startExam" type="button" disabled>Start exam</button>
-            <button id="finishExam" class="secondary" type="button" disabled>Submit</button>
+            <button id="startExam" type="button" disabled>Начать экзамен</button>
+            <button id="finishExam" class="secondary" type="button" disabled>Отправить</button>
         </div>
 
-        <section class="questions" aria-label="Questions">
+        <div class="requirements">
+            <div id="extensionState">Расширение прокторинга не найдено</div>
+            <div id="statusText">Готовим экзаменационную среду</div>
+        </div>
+
+        <div class="time-warning" id="timeWarning" hidden>
+            До конца экзамена осталось 5 минут.
+        </div>
+
+        <section class="questions" aria-label="Вопросы">
             <article class="question">
-                <h2>1. Which Java version is required by this project?</h2>
+                <h2>1. Какая версия Java используется в проекте?</h2>
                 <label><input type="radio" name="q1"> Java 8</label>
                 <label><input type="radio" name="q1"> Java 11</label>
                 <label><input type="radio" name="q1"> Java 17</label>
             </article>
             <article class="question">
-                <h2>2. Which layer contains business rules?</h2>
-                <label><input type="radio" name="q2"> Controller</label>
-                <label><input type="radio" name="q2"> Service</label>
+                <h2>2. В каком слое находятся бизнес-правила?</h2>
+                <label><input type="radio" name="q2"> Контроллер</label>
+                <label><input type="radio" name="q2"> Сервис</label>
                 <label><input type="radio" name="q2"> DTO</label>
             </article>
             <article class="question">
-                <h2>3. What does JWT provide in this demo?</h2>
-                <label><input type="radio" name="q3"> Authentication token</label>
-                <label><input type="radio" name="q3"> Database migration</label>
-                <label><input type="radio" name="q3"> Load testing</label>
+                <h2>3. Для чего используется JWT?</h2>
+                <label><input type="radio" name="q3"> Для токена аутентификации</label>
+                <label><input type="radio" name="q3"> Для миграции базы данных</label>
+                <label><input type="radio" name="q3"> Для нагрузочного тестирования</label>
             </article>
             <article class="question">
-                <h2>4. Which event is generated when the tab loses focus?</h2>
+                <h2>4. Какое событие создаётся при переключении вкладки?</h2>
                 <label><input type="radio" name="q4"> TAB_SWITCH</label>
                 <label><input type="radio" name="q4"> MANUAL_NOTE</label>
                 <label><input type="radio" name="q4"> NOISE_DETECTED</label>
@@ -66,35 +129,12 @@
         </section>
     </section>
 
-    <aside class="proctor">
+    <aside class="camera-panel">
         <div class="camera-box">
             <video id="camera" autoplay muted playsinline></video>
             <canvas id="overlay"></canvas>
-            <div class="camera-empty" id="cameraEmpty">Camera permission appears after exam start</div>
+            <div class="camera-empty" id="cameraEmpty">Камера включится после начала экзамена</div>
         </div>
-
-        <div class="signals">
-            <div>
-                <span>Status</span>
-                <strong id="statusText">Not signed in</strong>
-            </div>
-            <div>
-                <span>Faces</span>
-                <strong id="faceCount">0</strong>
-            </div>
-            <div>
-                <span>Violations</span>
-                <strong id="eventCount">0</strong>
-            </div>
-        </div>
-
-        <section class="event-log">
-            <div class="section-title">
-                <h2>Live event log</h2>
-                <button id="manualNote" type="button" disabled>Flag note</button>
-            </div>
-            <ol id="events"></ol>
-        </section>
     </aside>
 </main>
 
@@ -102,3 +142,4 @@
 <script src="/exam-demo/app.js"></script>
 </body>
 </html>
+

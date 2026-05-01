@@ -6,9 +6,14 @@ const state = {
     recorder: null,
     recordingChunkIndex: 0,
     running: false,
+    extensionReady: false,
+    extensionTimerId: null,
     stopAt: 0,
     timerId: null,
     snapshotTimerId: null,
+    recordingTimerId: null,
+    fiveMinuteWarningShown: false,
+    fullscreenBlocked: false,
     lastEventAt: new Map(),
     violationStreaks: new Map(),
 };
@@ -16,27 +21,49 @@ const state = {
 const FACE_CONFIDENCE_THRESHOLD = 0.78;
 const MIN_FACE_AREA_RATIO = 0.018;
 const VIOLATION_CONFIRM_FRAMES = 3;
-const SNAPSHOT_WINDOW_MS = 3 * 60 * 1000;
-const RECORDING_CHUNK_MS = 30 * 1000;
+const MEDIA_INTERVAL_MS = 5 * 60 * 1000;
+const RECORDING_DURATION_MS = 10 * 1000;
+const EXAM_DURATION_MS = 30 * 60 * 1000;
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const PHONE_LABELS = ['cell phone', 'mobile phone', 'phone', 'smartphone'];
+const DEMO_STUDENTS_BY_IIN = {
+    '010101300123': 'student@example.com',
+};
 
+const authScreen = document.getElementById('authScreen');
+const extensionScreen = document.getElementById('extensionScreen');
+const examLayout = document.getElementById('examLayout');
 const loginForm = document.getElementById('loginForm');
+const loginStatus = document.getElementById('loginStatus');
+const languageSelect = document.getElementById('languageSelect');
+const extensionGateStatus = document.getElementById('extensionGateStatus');
+const extensionLogoutButton = document.getElementById('extensionLogoutButton');
 const sessionSelect = document.getElementById('sessionSelect');
 const startExam = document.getElementById('startExam');
 const finishExam = document.getElementById('finishExam');
-const manualNote = document.getElementById('manualNote');
+const logoutButton = document.getElementById('logoutButton');
 const timer = document.getElementById('timer');
 const statusText = document.getElementById('statusText');
+const extensionState = document.getElementById('extensionState');
+const timeWarning = document.getElementById('timeWarning');
+const fullscreenWarning = document.getElementById('fullscreenWarning');
+const returnFullscreen = document.getElementById('returnFullscreen');
 const camera = document.getElementById('camera');
 const overlay = document.getElementById('overlay');
 const ctx = overlay.getContext('2d');
 const cameraEmpty = document.getElementById('cameraEmpty');
-const faceCount = document.getElementById('faceCount');
-const eventCount = document.getElementById('eventCount');
-const eventsList = document.getElementById('events');
 
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     await login();
+});
+
+languageSelect.addEventListener('change', () => {
+    if (languageSelect.value === 'kk') {
+        loginStatus.textContent = 'Казахский интерфейс будет добавлен позже. Сейчас используется русский язык.';
+        return;
+    }
+    loginStatus.textContent = 'Введите ИИН студента и пароль, чтобы перейти к экзамену.';
 });
 
 startExam.addEventListener('click', async () => {
@@ -44,53 +71,102 @@ startExam.addEventListener('click', async () => {
     await start();
 });
 
-finishExam.addEventListener('click', () => stop('Exam submitted'));
-manualNote.addEventListener('click', () => reportViolation('MANUAL_NOTE', 2, 'Manual proctoring note created by the student demo UI'));
+finishExam.addEventListener('click', () => stop('Экзамен отправлен'));
+logoutButton.addEventListener('click', logout);
+extensionLogoutButton.addEventListener('click', logout);
+returnFullscreen.addEventListener('click', () => enterFullscreen());
+
+document.addEventListener('fullscreenchange', () => {
+    if (!state.running) {
+        return;
+    }
+    if (!document.fullscreenElement) {
+        state.fullscreenBlocked = true;
+        fullscreenWarning.hidden = false;
+        reportViolation('FULLSCREEN_EXIT', 5, 'Студент вышел из полноэкранного режима');
+    } else if (state.fullscreenBlocked) {
+        state.fullscreenBlocked = false;
+        fullscreenWarning.hidden = true;
+        reportViolation('FULLSCREEN_RETURNED', 1, 'Студент вернулся в полноэкранный режим');
+    }
+});
 
 document.addEventListener('visibilitychange', () => {
     if (state.running && document.hidden) {
-        reportViolation('TAB_SWITCH', 4, 'The exam tab was hidden or the student switched away from it');
+        reportViolation('TAB_SWITCH', 4, 'Студент скрыл вкладку экзамена или переключился на другую вкладку');
     }
 });
 
 window.addEventListener('blur', () => {
     if (state.running) {
-        reportViolation('TAB_SWITCH', 3, 'The browser window lost focus during the exam');
+        reportViolation('TAB_SWITCH', 3, 'Окно браузера потеряло фокус во время экзамена');
     }
 });
 
-if (state.token) {
-    loadSessions().catch(() => {
-        localStorage.removeItem('examDemoToken');
-        state.token = '';
-        setStatus('Not signed in');
-    });
-}
+window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data) {
+        return;
+    }
+    if (event.data.type === 'PROCTORING_EXTENSION_READY') {
+        const firstConnect = !state.extensionReady;
+        state.extensionReady = true;
+        renderExtensionState();
+        updateStartButton();
+        if (state.token && extensionScreen && !extensionScreen.hidden && firstConnect) {
+            showExamScreen();
+            loadSessions().catch(() => {
+                localStorage.removeItem('examDemoToken');
+                state.token = '';
+                showAuthScreen('Не удалось загрузить экзамен. Войдите заново.');
+            });
+        }
+        if (state.running && firstConnect) {
+            reportViolation('EXTENSION_CONNECTED', 1, 'Расширение прокторинга активно');
+        }
+    }
+});
+
+pingExtension();
+state.extensionTimerId = setInterval(pingExtension, 3000);
+initializeScreen();
 
 async function login() {
-    setStatus('Signing in...');
+    const iin = document.getElementById('iin').value.trim();
+    const email = DEMO_STUDENTS_BY_IIN[iin];
+
+    if (!email) {
+        loginStatus.textContent = 'Студент с таким ИИН не найден.';
+        return;
+    }
+
+    loginStatus.textContent = 'Вход в систему...';
     const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            email: document.getElementById('email').value,
+            email,
             password: document.getElementById('password').value,
         }),
     });
 
     if (!response.ok) {
-        setStatus('Sign in failed');
+        loginStatus.textContent = 'Не удалось войти. Проверьте ИИН и пароль.';
         return;
     }
 
     const body = await response.json();
     state.token = body.token;
     localStorage.setItem('examDemoToken', state.token);
-    await loadSessions();
+    if (state.extensionReady) {
+        showExamScreen();
+        await loadSessions();
+        return;
+    }
+    showExtensionScreen();
 }
 
 async function loadSessions() {
-    setStatus('Loading sessions...');
+    setStatus('Загрузка сессий...');
     const response = await api('/api/sessions');
     const sessions = await response.json();
     sessionSelect.innerHTML = '';
@@ -98,36 +174,80 @@ async function loadSessions() {
     sessions.forEach((session) => {
         const option = document.createElement('option');
         option.value = session.id;
-        option.textContent = `${session.examTitle} | ${session.status} | ${shortId(session.id)}`;
+        option.textContent = `${session.examTitle} | ${statusLabel(session.status)} | ${shortId(session.id)}`;
         sessionSelect.append(option);
     });
 
     state.sessionId = sessionSelect.value || '';
-    startExam.disabled = !state.sessionId;
-    setStatus(state.sessionId ? 'Ready' : 'No session assigned');
+    setStatus(state.sessionId ? 'Готово к старту' : 'Нет назначенной сессии');
+    updateStartButton();
+}
 
-    if (state.sessionId) {
-        await loadEvents();
+function showExamScreen() {
+    authScreen.hidden = true;
+    extensionScreen.hidden = true;
+    examLayout.hidden = false;
+}
+
+function showAuthScreen(message) {
+    authScreen.hidden = false;
+    extensionScreen.hidden = true;
+    examLayout.hidden = true;
+    loginStatus.textContent = message;
+}
+
+function showExtensionScreen() {
+    authScreen.hidden = true;
+    extensionScreen.hidden = false;
+    examLayout.hidden = true;
+    extensionGateStatus.textContent = 'Для перехода к экзамену включите расширение в браузере. После подключения экзамен откроется автоматически.';
+    pingExtension();
+}
+
+function initializeScreen() {
+    if (state.token) {
+        showExtensionScreen();
+        return;
     }
+    showAuthScreen('Введите ИИН студента и пароль, чтобы перейти к экзамену.');
+}
+
+function logout() {
+    if (state.running) {
+        stop('Вы вышли из аккаунта');
+    }
+    localStorage.removeItem('examDemoToken');
+    state.token = '';
+    state.sessionId = '';
+    sessionSelect.innerHTML = '';
+    showAuthScreen('Вы вышли из аккаунта. Введите ИИН студента и пароль, чтобы перейти к экзамену.');
 }
 
 async function start() {
-    if (!state.sessionId || state.running) {
+    if (!state.sessionId || state.running || !state.extensionReady) {
         return;
     }
 
-    setStatus('Requesting camera permission...');
+    setStatus('Запрос доступа к камере и микрофону...');
+    await enterFullscreen();
     startExam.disabled = true;
     finishExam.disabled = false;
-    manualNote.disabled = false;
     sessionSelect.disabled = true;
 
     state.stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: false,
+        audio: true,
     });
     camera.srcObject = state.stream;
     cameraEmpty.hidden = true;
+
+    state.stream.getAudioTracks().forEach((track) => {
+        track.addEventListener('ended', () => reportViolation('MICROPHONE_DISABLED', 4, 'Микрофон был отключён во время экзамена'));
+        track.addEventListener('mute', () => reportViolation('MICROPHONE_DISABLED', 4, 'Микрофон был заглушен во время экзамена'));
+    });
+    state.stream.getVideoTracks().forEach((track) => {
+        track.addEventListener('ended', () => reportViolation('CAMERA_DISABLED', 5, 'Камера была отключена во время экзамена'));
+    });
 
     await new Promise((resolve) => {
         camera.onloadedmetadata = resolve;
@@ -135,14 +255,16 @@ async function start() {
 
     await loadDetector();
     state.running = true;
-    startRecording();
-    state.stopAt = Date.now() + 10 * 60 * 1000;
+    state.stopAt = Date.now() + EXAM_DURATION_MS;
+    state.fiveMinuteWarningShown = false;
     state.timerId = setInterval(renderTimer, 1000);
     renderTimer();
-    await captureSnapshot('Exam start camera snapshot');
-    scheduleNextSnapshot();
+    await reportViolation('EXTENSION_CONNECTED', 1, 'Расширение прокторинга активно при старте экзамена');
+    await captureSnapshot('Плановый снимок камеры при старте экзамена');
+    await recordTenSecondClip();
+    scheduleSnapshotCapture();
     requestAnimationFrame(detectLoop);
-    setStatus('Exam in progress');
+    setStatus('Экзамен идёт');
 }
 
 function stop(message) {
@@ -150,8 +272,10 @@ function stop(message) {
     state.stopAt = 0;
     clearInterval(state.timerId);
     clearTimeout(state.snapshotTimerId);
+    clearTimeout(state.recordingTimerId);
     state.timerId = null;
     state.snapshotTimerId = null;
+    state.recordingTimerId = null;
     state.violationStreaks.clear();
 
     if (state.recorder && state.recorder.state !== 'inactive') {
@@ -164,36 +288,68 @@ function stop(message) {
         state.stream = null;
     }
 
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+    }
+
     camera.srcObject = null;
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     cameraEmpty.hidden = false;
-    cameraEmpty.textContent = 'Camera stopped';
-    faceCount.textContent = '0';
+    cameraEmpty.textContent = 'Камера остановлена';
     timer.textContent = '00:00';
-    startExam.disabled = !state.sessionId;
+    timeWarning.hidden = true;
+    fullscreenWarning.hidden = true;
     finishExam.disabled = true;
-    manualNote.disabled = true;
     sessionSelect.disabled = false;
     setStatus(message);
+    updateStartButton();
 }
 
-function startRecording() {
+async function enterFullscreen() {
+    if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+    }
+}
+
+function scheduleSnapshotCapture() {
+    state.snapshotTimerId = setTimeout(async () => {
+        await captureSnapshot('Плановый снимок камеры каждые 5 минут');
+        scheduleSnapshotCapture();
+    }, MEDIA_INTERVAL_MS);
+}
+
+async function recordTenSecondClip() {
     if (!window.MediaRecorder || !state.stream) {
-        reportViolation('MANUAL_NOTE', 2, 'MediaRecorder is not supported by this browser');
+        await reportViolation('MANUAL_NOTE', 2, 'Браузер не поддерживает запись видео через MediaRecorder');
         return;
     }
 
-    state.recordingChunkIndex = 0;
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
         ? 'video/webm;codecs=vp8'
         : 'video/webm';
+    const chunks = [];
     state.recorder = new MediaRecorder(state.stream, { mimeType });
     state.recorder.addEventListener('dataavailable', (event) => {
         if (event.data && event.data.size > 0) {
-            uploadRecordingChunk(event.data);
+            chunks.push(event.data);
         }
     });
-    state.recorder.start(RECORDING_CHUNK_MS);
+    state.recorder.addEventListener('stop', async () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        if (blob.size > 0) {
+            await uploadRecordingChunk(blob);
+        }
+        state.recorder = null;
+    });
+    state.recorder.start();
+    if (state.running) {
+        state.recordingTimerId = setTimeout(recordTenSecondClip, MEDIA_INTERVAL_MS);
+    }
+    setTimeout(() => {
+        if (state.recorder && state.recorder.state !== 'inactive') {
+            state.recorder.stop();
+        }
+    }, RECORDING_DURATION_MS);
 }
 
 async function uploadRecordingChunk(blob) {
@@ -206,17 +362,6 @@ async function uploadRecordingChunk(blob) {
         method: 'POST',
         body: formData,
     });
-}
-
-function scheduleNextSnapshot() {
-    if (!state.running) {
-        return;
-    }
-    const randomDelay = Math.floor(Math.random() * SNAPSHOT_WINDOW_MS);
-    state.snapshotTimerId = setTimeout(async () => {
-        await captureSnapshot('Random periodic camera snapshot');
-        scheduleNextSnapshot();
-    }, randomDelay);
 }
 
 async function captureSnapshot(reason) {
@@ -252,8 +397,13 @@ function renderTimer() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     timer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+    if (!state.fiveMinuteWarningShown && leftMs <= FIVE_MINUTES_MS) {
+        state.fiveMinuteWarningShown = true;
+        timeWarning.hidden = false;
+    }
     if (totalSeconds <= 0) {
-        stop('Time is over');
+        stop('Время экзамена истекло');
     }
 }
 
@@ -262,10 +412,10 @@ async function loadDetector() {
         return;
     }
     if (!window.Human) {
-        throw new Error('Face detector failed to load');
+        throw new Error('Не удалось загрузить детектор лица');
     }
 
-    setStatus('Loading face detector...');
+    setStatus('Загрузка детектора лица...');
     state.human = new Human.Human({
         modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models',
         backend: 'webgl',
@@ -279,7 +429,7 @@ async function loadDetector() {
         },
         body: { enabled: false },
         hand: { enabled: false },
-        object: { enabled: false },
+        object: { enabled: true, minConfidence: 0.35, maxDetected: 10 },
         gesture: { enabled: false },
     });
     await state.human.load();
@@ -294,9 +444,10 @@ async function detectLoop() {
     resizeOverlay();
     const result = await state.human.detect(camera);
     const faces = filterFaces(result.face || []);
+    const objects = result.object || [];
     drawFaces(faces);
-    faceCount.textContent = String(faces.length);
     await evaluateFrame(faces);
+    await evaluateObjects(objects);
     setTimeout(() => requestAnimationFrame(detectLoop), 650);
 }
 
@@ -318,18 +469,28 @@ function drawFaces(faces) {
         const [x, y, width, height] = mirrorBox(face.box);
         ctx.strokeStyle = index === 0 ? '#0b7a75' : '#b42318';
         ctx.strokeRect(x, y, width, height);
-        ctx.fillStyle = ctx.strokeStyle;
-        ctx.fillText(index === 0 ? 'student' : 'extra face', x + 6, Math.max(18, y - 8));
     });
+}
+
+async function evaluateObjects(objects) {
+    const phone = objects.find((object) => {
+        const label = String(object.label || object.class || object.name || '').toLowerCase();
+        return PHONE_LABELS.some((phoneLabel) => label.includes(phoneLabel));
+    });
+    if (phone) {
+        await reportConfirmedViolation('PHONE_DETECTED', 5, 'В кадре обнаружен телефон');
+    } else {
+        resetViolation('PHONE_DETECTED');
+    }
 }
 
 async function evaluateFrame(faces) {
     if (faces.length === 0) {
-        await reportConfirmedViolation('FACE_NOT_DETECTED', 4, 'No face detected in the camera frame');
+        await reportConfirmedViolation('FACE_NOT_DETECTED', 4, 'Лицо не обнаружено в кадре камеры');
         return;
     }
     if (faces.length > 1) {
-        await reportConfirmedViolation('MULTIPLE_FACES', 5, `Multiple faces detected: ${faces.length}`);
+        await reportConfirmedViolation('MULTIPLE_FACES', 5, `В кадре обнаружено несколько лиц: ${faces.length}`);
         return;
     }
 
@@ -346,7 +507,7 @@ async function evaluateFrame(faces) {
         centerY < overlay.height * 0.82;
 
     if (!centered) {
-        await reportConfirmedViolation('FACE_NOT_CENTERED', 2, 'Face moved outside the central camera zone');
+        await reportConfirmedViolation('FACE_NOT_CENTERED', 2, 'Лицо вышло из центральной зоны кадра');
         return;
     }
     resetViolation('FACE_NOT_CENTERED');
@@ -370,7 +531,7 @@ async function reportViolation(type, severity, details) {
     }
 
     const now = Date.now();
-    const cooldownMs = 6000;
+    const cooldownMs = type === 'MANUAL_NOTE' ? 0 : 6000;
     if ((state.lastEventAt.get(type) || 0) + cooldownMs > now) {
         return;
     }
@@ -380,35 +541,6 @@ async function reportViolation(type, severity, details) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, severity, details }),
-    });
-    await loadEvents();
-}
-
-async function loadEvents() {
-    if (!state.sessionId) {
-        return;
-    }
-
-    const response = await api(`/api/sessions/${state.sessionId}/events`);
-    const events = await response.json();
-    eventCount.textContent = String(events.length);
-    eventsList.innerHTML = '';
-
-    events.slice(0, 20).forEach((event) => {
-        const item = document.createElement('li');
-        if (event.severity >= 4) {
-            item.classList.add('critical');
-        }
-        item.innerHTML = `
-            <div class="event-meta">
-                <span>${new Date(event.occurredAt).toLocaleTimeString()}</span>
-                <span>severity ${event.severity}</span>
-            </div>
-            <div class="event-type">${event.type}</div>
-            <p class="event-details"></p>
-        `;
-        item.querySelector('.event-details').textContent = event.details;
-        eventsList.append(item);
     });
 }
 
@@ -420,6 +552,30 @@ async function api(url, options = {}) {
         throw new Error(`API ${response.status}`);
     }
     return response;
+}
+
+function pingExtension() {
+    const wasReady = state.extensionReady;
+    state.extensionReady = false;
+    window.postMessage({ type: 'PROCTORING_EXTENSION_PING' }, '*');
+    setTimeout(() => {
+        renderExtensionState();
+        updateStartButton();
+        if (state.running && wasReady && !state.extensionReady) {
+            reportViolation('EXTENSION_DISCONNECTED', 5, 'Расширение прокторинга не отвечает');
+        }
+    }, 800);
+}
+
+function renderExtensionState() {
+    extensionState.className = state.extensionReady ? 'ok' : 'warn';
+    extensionState.textContent = state.extensionReady
+        ? 'Расширение прокторинга активно'
+        : 'Расширение прокторинга не найдено';
+}
+
+function updateStartButton() {
+    startExam.disabled = !state.sessionId || !state.token || !state.extensionReady || state.running;
 }
 
 function resizeOverlay() {
@@ -444,6 +600,17 @@ function shortId(id) {
     return id ? id.slice(0, 8) : '-';
 }
 
+function statusLabel(status) {
+    const labels = {
+        CREATED: 'Создана',
+        IN_PROGRESS: 'Идёт',
+        COMPLETED: 'Завершена',
+        CANCELLED: 'Отменена',
+    };
+    return labels[status] || status;
+}
+
 function setStatus(text) {
     statusText.textContent = text;
 }
+

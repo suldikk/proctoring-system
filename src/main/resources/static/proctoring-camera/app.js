@@ -330,7 +330,7 @@ async function loadEvents() {
         item.innerHTML = `
             <div class="event-meta">
                 <span>${new Date(event.occurredAt).toLocaleTimeString()}</span>
-                <span>severity ${event.severity}</span>
+                <span>важность ${event.severity}</span>
             </div>
             <div class="event-type">${event.type}</div>
             <p class="event-details"></p>

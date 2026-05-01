@@ -1,20 +1,20 @@
-# Proctoring System
+# Система прокторинга
 
-Privacy-oriented proctoring API for exam sessions, events, roles, audit logs, and deployment practice.
+API и демонстрационный интерфейс для онлайн-прокторинга: экзаменационные сессии, события нарушений, роли, аудит, снимки камеры, запись видео и развертывание.
 
-## Stack
+## Стек
 
 - Java 17
 - Spring Boot 3
-- Spring Security, JWT, RBAC
+- Spring Security, JWT, RBAC/ABAC
 - Spring Data JPA, PostgreSQL, Flyway
-- Redis and Kafka infrastructure placeholders
+- Redis и Kafka как инфраструктурные компоненты
 - JUnit 5, Mockito, Testcontainers
 - Docker, Docker Compose, Kubernetes
 - GitHub Actions CI
-- k6 performance checks
+- k6 для нагрузочной проверки
 
-## Architecture
+## Архитектура
 
 ```text
 Controller -> Service -> Repository -> Domain
@@ -23,20 +23,20 @@ Controller -> Service -> Repository -> Domain
     DTO       Mapper      JPA entities
 ```
 
-Main packages:
+Основные пакеты:
 
-- `controller`: REST API and error handling.
-- `service`: business use cases and audit logging.
-- `repository`: Spring Data persistence layer.
-- `repository.entity`: database models.
-- `domain`: roles, statuses, event types.
-- `dto`: request and response contracts.
-- `mapper`: DTO/entity conversion.
-- `security`: JWT issuing and authentication filter.
+- `controller`: REST API и обработка ошибок.
+- `service`: бизнес-сценарии, проверки доступа и аудит.
+- `repository`: слой доступа к данным через Spring Data.
+- `repository.entity`: JPA-модели базы данных.
+- `domain`: роли, статусы, типы событий.
+- `dto`: контракты запросов и ответов.
+- `mapper`: преобразование entity в DTO.
+- `security`: JWT и фильтр аутентификации.
 
-## API Examples
+## Примеры API
 
-Register:
+Регистрация:
 
 ```http
 POST /api/auth/register
@@ -45,12 +45,12 @@ Content-Type: application/json
 {
   "email": "student@example.com",
   "password": "password123",
-  "fullName": "Student One",
+  "fullName": "Студент Один",
   "roles": ["STUDENT"]
 }
 ```
 
-Login:
+Вход:
 
 ```http
 POST /api/auth/login
@@ -62,7 +62,7 @@ Content-Type: application/json
 }
 ```
 
-Create exam session:
+Создание экзаменационной сессии:
 
 ```http
 POST /api/sessions
@@ -70,7 +70,7 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "examTitle": "Java Final Exam",
+  "examTitle": "Итоговый экзамен по Java",
   "studentId": "00000000-0000-0000-0000-000000000000",
   "proctorId": "00000000-0000-0000-0000-000000000001",
   "startsAt": "2026-05-01T09:00:00Z",
@@ -78,7 +78,7 @@ Content-Type: application/json
 }
 ```
 
-Create proctoring event:
+Создание события прокторинга:
 
 ```http
 POST /api/sessions/{sessionId}/events
@@ -88,52 +88,52 @@ Content-Type: application/json
 {
   "type": "TAB_SWITCH",
   "severity": 3,
-  "details": "Student switched browser tab during the exam"
+  "details": "Студент переключил вкладку во время экзамена"
 }
 ```
 
-## Local Run
+## Локальный запуск
 
-Start infrastructure:
+Запуск инфраструктуры:
 
 ```bash
 docker compose up -d
 ```
 
-Run the app:
+Запуск приложения:
 
 ```bash
 mvn spring-boot:run
 ```
 
-For local demo users with privileged roles, run with the `local` profile:
+Для демонстрации с тестовыми пользователями запускайте профиль `local`:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-Health check:
+Проверка состояния:
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-Camera proctoring demo:
+## Демонстрация
+
+Техническая страница камеры:
 
 ```text
 http://localhost:8080/proctoring-camera/
 ```
 
-Run with the `local` profile, log in as `proctor@example.com` / `password123`, create an exam session through the API if none exists, then select it on the page and start the camera. The browser detects `FACE_NOT_DETECTED`, `MULTIPLE_FACES`, and `FACE_NOT_CENTERED` events and stores them through the existing proctoring event API.
-
-Full exam demonstration:
+Полная демонстрация экзамена:
 
 ```text
-Student page: http://localhost:8080/exam-demo/
-Proctor page: http://localhost:8080/proctor-dashboard/
+Страница студента: http://localhost:8080/exam-demo/
+Панель проктора: http://localhost:8080/proctor-dashboard/
 ```
 
-Run with the `local` profile and use these demo accounts:
+Демо-аккаунты:
 
 ```text
 student@example.com / password123
@@ -141,47 +141,77 @@ proctor@example.com / password123
 admin@example.com / password123
 ```
 
-Suggested presentation flow:
+Сценарий показа:
 
-1. Open the proctor dashboard and sign in as the proctor.
-2. Open the student exam page in another browser window and sign in as the student.
-3. Start the exam and allow camera access.
-4. Switch tabs, hide your face, or move out of the center of the camera frame.
-5. Watch the violations appear in the proctor dashboard with a calculated risk level.
+1. Откройте панель проктора и войдите как проктор.
+2. Откройте страницу студента в другом окне браузера и войдите как студент.
+3. Нажмите `Начать экзамен` и разрешите доступ к камере.
+4. Переключите вкладку, закройте лицо или выйдите из центра кадра.
+5. Покажите, как нарушения появляются в панели проктора и меняют уровень риска.
 
-During the demo exam, the browser also:
+Во время экзамена браузер также:
 
-- Saves an initial camera snapshot after exam start.
-- Saves another camera snapshot at a random moment inside each 3-minute window.
-- Records the camera stream with `MediaRecorder` and uploads `webm` chunks every 30 seconds.
+- требует установленное расширение `Java Proctoring Guard`;
+- запрашивает камеру, микрофон и полноэкранный режим;
+- затемняет страницу теста при выходе из полноэкранного режима;
+- фиксирует выход из полноэкранного режима, переключение вкладок, отсутствие лица, несколько лиц и телефон в кадре;
+- показывает студенту предупреждение за 5 минут до конца экзамена;
+- сохраняет снимок камеры при старте и далее каждые 5 минут;
+- записывает 10-секундный `webm`-фрагмент при старте и далее каждые 5 минут.
 
-Media files are stored under `storage/proctoring` by default. Override the location with:
+На странице студента отображаются только тест, таймер, камера, ФИО, группа, дисциплина и количество вопросов. Журнал событий, количество нарушений, снимки и фрагменты записи отображаются только в панели проктора.
+
+## Расширение браузера
+
+MVP расширения находится в папке:
+
+```text
+browser-extension
+```
+
+Как установить в Chrome:
+
+1. Откройте `chrome://extensions/`.
+2. Включите `Developer mode`.
+3. Нажмите `Load unpacked`.
+4. Выберите папку `browser-extension`.
+5. Откройте страницу `http://localhost:8080/exam-demo/`.
+
+Без расширения кнопка `Начать экзамен` остаётся заблокированной.
+
+Файлы по умолчанию сохраняются в:
+
+```text
+storage/proctoring
+```
+
+Путь можно изменить переменной окружения:
 
 ```bash
 PROCTORING_STORAGE_ROOT=/path/to/proctoring-storage
 ```
 
-## Tests
+## Тесты
 
-Unit and web tests:
+Unit- и web-тесты:
 
 ```bash
 mvn test
 ```
 
-Integration tests use Testcontainers and require Docker:
+Интеграционные тесты используют Testcontainers и требуют Docker:
 
 ```bash
 mvn test -Dgroups=integration
 ```
 
-Performance smoke test:
+Нагрузочная smoke-проверка:
 
 ```bash
 k6 run performance/k6/proctoring-api.js
 ```
 
-Optional parameters:
+Параметры запуска:
 
 ```bash
 k6 run -e BASE_URL=http://localhost:8080 -e VUS=10 -e DURATION=1m performance/k6/proctoring-api.js
@@ -189,29 +219,30 @@ k6 run -e BASE_URL=http://localhost:8080 -e VUS=10 -e DURATION=1m performance/k6
 
 ## Kubernetes
 
-Build image:
+Сборка образа:
 
 ```bash
 mvn -DskipTests package
 docker build -t proctoring-system:latest .
 ```
 
-Apply manifests:
+Применение манифестов:
 
 ```bash
 kubectl apply -f k8s/secrets.example.yml
 kubectl apply -f k8s/deployment.yml
 ```
 
-## GitHub Process
+## Процесс на GitHub
 
-- Branches: `main`, `dev`, `feature/*`
-- Commit tags: `feat`, `fix`, `refactor`, `test`, `docs`, `ci`
-- Pull requests target `dev`; release PRs target `main`
-- Kanban columns: Backlog, In Progress, Review, Done
+- Ветки: `main`, `dev`, `feature/*`
+- Теги коммитов: `feat`, `fix`, `refactor`, `test`, `docs`, `ci`
+- Pull Request из `feature/*` направляется в `dev`
+- Релизный Pull Request направляется из `dev` в `main`
+- Доска задач: Backlog, In Progress, Review, Done
 
 ## Roadmap
 
-- Add media upload and encrypted artifact storage.
-- Add Kafka event stream for real-time violation processing.
-- Add Redis-backed token denylist and rate limiting.
+- Добавить зашифрованное хранилище артефактов.
+- Добавить Kafka-поток событий для обработки нарушений в реальном времени.
+- Добавить Redis denylist для токенов и rate limiting.

@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProctoringSnapshotRepository extends JpaRepository<ProctoringSnapshotEntity, UUID> {
 
     List<ProctoringSnapshotEntity> findBySessionIdOrderByCapturedAtDesc(UUID sessionId);
+
+    long deleteBySessionId(UUID sessionId);
 }

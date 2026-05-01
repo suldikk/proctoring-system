@@ -25,9 +25,9 @@ public class LocalDemoDataConfig {
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
-            createUserIfMissing(userRepository, passwordEncoder, "admin@example.com", "Admin Demo", Set.of(Role.ADMIN));
-            UserEntity proctor = createUserIfMissing(userRepository, passwordEncoder, "proctor@example.com", "Proctor Demo", Set.of(Role.PROCTOR));
-            UserEntity student = createUserIfMissing(userRepository, passwordEncoder, "student@example.com", "Student Demo", Set.of(Role.STUDENT));
+            createUserIfMissing(userRepository, passwordEncoder, "admin@example.com", "Администратор Демо", Set.of(Role.ADMIN));
+            UserEntity proctor = createUserIfMissing(userRepository, passwordEncoder, "proctor@example.com", "Проктор Демо", Set.of(Role.PROCTOR));
+            UserEntity student = createUserIfMissing(userRepository, passwordEncoder, "student@example.com", "Студент Демо", Set.of(Role.STUDENT));
             createSessionIfMissing(sessionRepository, student, proctor);
         };
     }
@@ -60,7 +60,7 @@ public class LocalDemoDataConfig {
 
         Instant startsAt = Instant.now().minus(15, ChronoUnit.MINUTES);
         ExamSessionEntity session = new ExamSessionEntity();
-        session.setExamTitle("Java Camera Proctoring Demo");
+        session.setExamTitle("Демо-экзамен по Java с прокторингом");
         session.setStudent(student);
         session.setProctor(proctor);
         session.setStartsAt(startsAt);

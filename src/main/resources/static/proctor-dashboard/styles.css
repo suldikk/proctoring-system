@@ -44,6 +44,10 @@ button:disabled {
     opacity: .55;
 }
 
+.danger-button {
+    background: var(--danger);
+}
+
 input {
     width: 100%;
     min-height: 40px;
@@ -124,6 +128,12 @@ h2 {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .sessions {
@@ -210,9 +220,11 @@ h2 {
 
 .event-stream ol {
     display: grid;
+    max-height: 360px;
     gap: 8px;
     margin: 10px 0 0;
     padding: 0;
+    overflow: auto;
     list-style: none;
 }
 

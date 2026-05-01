@@ -1,6 +1,7 @@
 package com.proctoring.controller;
 
 import com.proctoring.dto.media.ProctoringRecordingChunkResponse;
+import com.proctoring.dto.media.ProctoringCleanupResponse;
 import com.proctoring.dto.media.ProctoringSnapshotResponse;
 import com.proctoring.service.ProctoringFileContent;
 import com.proctoring.service.ProctoringMediaService;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -88,6 +90,15 @@ public class ProctoringMediaController {
             Authentication authentication
     ) {
         return fileResponse(mediaService.loadRecordingChunk(sessionId, chunkId, authentication));
+    }
+
+    @DeleteMapping("/proctoring-artifacts")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROCTOR')")
+    public ProctoringCleanupResponse cleanupSessionArtifacts(
+            @PathVariable UUID sessionId,
+            Authentication authentication
+    ) {
+        return mediaService.cleanupSessionArtifacts(sessionId, authentication);
     }
 
     private ResponseEntity<Resource> fileResponse(ProctoringFileContent content) {

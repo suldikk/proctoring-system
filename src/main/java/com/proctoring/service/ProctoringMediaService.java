@@ -1,9 +1,11 @@
 package com.proctoring.service;
 
 import com.proctoring.dto.media.ProctoringRecordingChunkResponse;
+import com.proctoring.dto.media.ProctoringCleanupResponse;
 import com.proctoring.dto.media.ProctoringSnapshotResponse;
 import com.proctoring.mapper.ProctoringMediaMapper;
 import com.proctoring.repository.ExamSessionRepository;
+import com.proctoring.repository.ProctoringEventRepository;
 import com.proctoring.repository.ProctoringRecordingChunkRepository;
 import com.proctoring.repository.ProctoringSnapshotRepository;
 import com.proctoring.repository.entity.ExamSessionEntity;
@@ -23,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProctoringMediaService {
 
     private final ExamSessionRepository sessionRepository;
+    private final ProctoringEventRepository eventRepository;
     private final ProctoringSnapshotRepository snapshotRepository;
     private final ProctoringRecordingChunkRepository recordingChunkRepository;
     private final ProctoringMediaMapper mediaMapper;
@@ -31,6 +34,7 @@ public class ProctoringMediaService {
 
     public ProctoringMediaService(
             ExamSessionRepository sessionRepository,
+            ProctoringEventRepository eventRepository,
             ProctoringSnapshotRepository snapshotRepository,
             ProctoringRecordingChunkRepository recordingChunkRepository,
             ProctoringMediaMapper mediaMapper,
@@ -38,6 +42,7 @@ public class ProctoringMediaService {
             AuditService auditService
     ) {
         this.sessionRepository = sessionRepository;
+        this.eventRepository = eventRepository;
         this.snapshotRepository = snapshotRepository;
         this.recordingChunkRepository = recordingChunkRepository;
         this.mediaMapper = mediaMapper;
@@ -136,6 +141,17 @@ public class ProctoringMediaService {
         return new ProctoringFileContent(fileStorageService.load(chunk.getFilePath()), chunk.getContentType());
     }
 
+    @Transactional
+    public ProctoringCleanupResponse cleanupSessionArtifacts(UUID sessionId, Authentication authentication) {
+        visibleProctorSession(sessionId, authentication);
+        long deletedEvents = eventRepository.deleteBySessionId(sessionId);
+        long deletedSnapshots = snapshotRepository.deleteBySessionId(sessionId);
+        long deletedRecordingChunks = recordingChunkRepository.deleteBySessionId(sessionId);
+        fileStorageService.deleteSessionFiles(sessionId);
+        auditService.record(authentication.getName(), "PROCTORING_ARTIFACTS_CLEARED", "EXAM_SESSION", sessionId.toString());
+        return new ProctoringCleanupResponse(sessionId, deletedEvents, deletedSnapshots, deletedRecordingChunks);
+    }
+
     private ExamSessionEntity visibleSession(UUID sessionId, Authentication authentication) {
         ExamSessionEntity session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
@@ -152,6 +168,14 @@ public class ProctoringMediaService {
             return session;
         }
         throw new AccessDeniedException("Session is not visible to the current user");
+    }
+
+    private ExamSessionEntity visibleProctorSession(UUID sessionId, Authentication authentication) {
+        ExamSessionEntity session = visibleSession(sessionId, authentication);
+        if (hasRole(authentication, "ROLE_ADMIN") || hasRole(authentication, "ROLE_PROCTOR")) {
+            return session;
+        }
+        throw new AccessDeniedException("Only proctors and admins can clear proctoring artifacts");
     }
 
     private String requireContentType(MultipartFile file, String expectedPrefix) {

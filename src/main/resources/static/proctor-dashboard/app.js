@@ -10,6 +10,7 @@ const refreshSessions = document.getElementById('refreshSessions');
 const refreshEvents = document.getElementById('refreshEvents');
 const refreshSnapshots = document.getElementById('refreshSnapshots');
 const refreshRecordings = document.getElementById('refreshRecordings');
+const clearArtifacts = document.getElementById('clearArtifacts');
 const sessionsList = document.getElementById('sessions');
 const eventsList = document.getElementById('events');
 const snapshotsList = document.getElementById('snapshots');
@@ -19,6 +20,13 @@ const riskBadge = document.getElementById('riskBadge');
 const totalEvents = document.getElementById('totalEvents');
 const criticalEvents = document.getElementById('criticalEvents');
 const lastUpdate = document.getElementById('lastUpdate');
+const VISIBLE_EVENT_TYPES = new Set([
+    'FULLSCREEN_EXIT',
+    'TAB_SWITCH',
+    'FACE_NOT_DETECTED',
+    'MULTIPLE_FACES',
+    'PHONE_DETECTED',
+]);
 
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -29,6 +37,7 @@ refreshSessions.addEventListener('click', loadSessions);
 refreshEvents.addEventListener('click', loadEvents);
 refreshSnapshots.addEventListener('click', loadSnapshots);
 refreshRecordings.addEventListener('click', loadRecordings);
+clearArtifacts.addEventListener('click', cleanupArtifacts);
 
 if (state.token) {
     loadSessions().catch(() => {
@@ -48,7 +57,7 @@ async function login() {
     });
 
     if (!response.ok) {
-        renderEmpty('Sign in failed');
+        renderEmpty('Не удалось войти');
         return;
     }
 
@@ -74,7 +83,7 @@ async function loadSessions() {
 function renderSessions() {
     sessionsList.innerHTML = '';
     if (state.sessions.length === 0) {
-        renderEmpty('No assigned sessions', sessionsList);
+        renderEmpty('Нет назначенных сессий', sessionsList);
         return;
     }
 
@@ -87,7 +96,7 @@ function renderSessions() {
         }
         button.innerHTML = `
             <span class="session-title"></span>
-            <span class="session-meta">${session.status} | ${shortId(session.id)}</span>
+            <span class="session-meta">${statusLabel(session.status)} | ${shortId(session.id)}</span>
         `;
         button.querySelector('.session-title').textContent = session.examTitle;
         button.addEventListener('click', () => selectSession(session.id));
@@ -99,10 +108,11 @@ async function selectSession(sessionId) {
     state.selectedSessionId = sessionId;
     renderSessions();
     const session = state.sessions.find((item) => item.id === sessionId);
-    sessionTitle.textContent = session ? session.examTitle : 'Selected session';
+    sessionTitle.textContent = session ? session.examTitle : 'Выбранная сессия';
     refreshEvents.disabled = false;
     refreshSnapshots.disabled = false;
     refreshRecordings.disabled = false;
+    clearArtifacts.disabled = false;
     await refreshSessionArtifacts();
 
     clearInterval(state.refreshTimer);
@@ -119,6 +129,24 @@ async function loadEvents() {
     renderEvents(events);
 }
 
+async function cleanupArtifacts() {
+    if (!state.selectedSessionId) {
+        return;
+    }
+
+    const confirmed = window.confirm('Очистить нарушения, снимки и фрагменты записи для выбранной сессии?');
+    if (!confirmed) {
+        return;
+    }
+
+    clearArtifacts.disabled = true;
+    await api(`/api/sessions/${state.selectedSessionId}/proctoring-artifacts`, {
+        method: 'DELETE',
+    });
+    await refreshSessionArtifacts();
+    clearArtifacts.disabled = false;
+}
+
 async function refreshSessionArtifacts() {
     await Promise.all([
         loadEvents(),
@@ -128,18 +156,19 @@ async function refreshSessionArtifacts() {
 }
 
 function renderEvents(events) {
-    totalEvents.textContent = String(events.length);
-    criticalEvents.textContent = String(events.filter((event) => event.severity >= 4).length);
+    const visibleEvents = events.filter((event) => VISIBLE_EVENT_TYPES.has(event.type));
+    totalEvents.textContent = String(visibleEvents.length);
+    criticalEvents.textContent = String(visibleEvents.filter((event) => event.severity >= 4).length);
     lastUpdate.textContent = new Date().toLocaleTimeString();
-    renderRisk(events);
+    renderRisk(visibleEvents);
 
     eventsList.innerHTML = '';
-    if (events.length === 0) {
-        renderEmpty('No violations reported yet', eventsList);
+    if (visibleEvents.length === 0) {
+        renderEmpty('Нарушений пока нет', eventsList);
         return;
     }
 
-    events.slice(0, 40).forEach((event) => {
+    visibleEvents.slice(0, 40).forEach((event) => {
         const item = document.createElement('li');
         if (event.severity >= 4) {
             item.classList.add('critical');
@@ -147,9 +176,8 @@ function renderEvents(events) {
         item.innerHTML = `
             <div class="event-meta">
                 <span>${new Date(event.occurredAt).toLocaleString()}</span>
-                <span>severity ${event.severity}</span>
             </div>
-            <div class="event-type">${event.type}</div>
+            <div class="event-type">${eventTypeLabel(event.type)}</div>
             <p class="event-details"></p>
         `;
         item.querySelector('.event-details').textContent = event.details;
@@ -170,7 +198,7 @@ async function loadSnapshots() {
 async function renderSnapshots(snapshots) {
     snapshotsList.innerHTML = '';
     if (snapshots.length === 0) {
-        renderEmpty('No snapshots saved yet', snapshotsList);
+        renderEmpty('Снимки пока не сохранены', snapshotsList);
         return;
     }
 
@@ -180,7 +208,7 @@ async function renderSnapshots(snapshots) {
         const item = document.createElement('div');
         item.className = 'snapshot';
         item.innerHTML = `
-            <img alt="Camera snapshot">
+            <img alt="Снимок камеры">
             <span>${new Date(snapshot.capturedAt).toLocaleString()} | ${formatBytes(snapshot.sizeBytes)}</span>
         `;
         item.querySelector('img').src = blobUrl;
@@ -201,7 +229,7 @@ async function loadRecordings() {
 function renderRecordings(chunks) {
     recordingsList.innerHTML = '';
     if (chunks.length === 0) {
-        renderEmpty('No recording chunks saved yet', recordingsList);
+        renderEmpty('Фрагменты записи пока не сохранены', recordingsList);
         return;
     }
 
@@ -210,10 +238,10 @@ function renderRecordings(chunks) {
         item.innerHTML = `
             <div class="event-meta">
                 <span>${new Date(chunk.uploadedAt).toLocaleString()}</span>
-                <span>chunk ${chunk.chunkIndex}</span>
+                <span>фрагмент ${chunk.chunkIndex}</span>
             </div>
             <div class="event-type">${formatBytes(chunk.sizeBytes)}</div>
-            <a class="recording-link" href="#">Open video chunk</a>
+            <a class="recording-link" href="#">Открыть фрагмент видео</a>
         `;
         item.querySelector('a').addEventListener('click', async (event) => {
             event.preventDefault();
@@ -230,16 +258,16 @@ function renderRisk(events) {
     const maxSeverity = events.reduce((max, event) => Math.max(max, event.severity), 0);
 
     if (criticalCount >= 3 || maxSeverity >= 5) {
-        riskBadge.textContent = 'High risk';
+        riskBadge.textContent = 'Высокий риск';
         riskBadge.classList.add('high');
     } else if (events.length >= 3 || maxSeverity >= 3) {
-        riskBadge.textContent = 'Medium risk';
+        riskBadge.textContent = 'Средний риск';
         riskBadge.classList.add('medium');
     } else if (events.length > 0) {
-        riskBadge.textContent = 'Low risk';
+        riskBadge.textContent = 'Низкий риск';
         riskBadge.classList.add('low');
     } else {
-        riskBadge.textContent = 'No data';
+        riskBadge.textContent = 'Нет данных';
     }
 }
 
@@ -279,4 +307,25 @@ function formatBytes(bytes) {
 
 function shortId(id) {
     return id ? id.slice(0, 8) : '-';
+}
+
+function statusLabel(status) {
+    const labels = {
+        CREATED: 'Создана',
+        IN_PROGRESS: 'Идёт',
+        COMPLETED: 'Завершена',
+        CANCELLED: 'Отменена',
+    };
+    return labels[status] || status;
+}
+
+function eventTypeLabel(type) {
+    const labels = {
+        FACE_NOT_DETECTED: 'Лицо не обнаружено',
+        MULTIPLE_FACES: 'Больше одного лица',
+        PHONE_DETECTED: 'Телефон в кадре',
+        TAB_SWITCH: 'Новая вкладка или потеря фокуса',
+        FULLSCREEN_EXIT: 'Выход из полноэкранного режима',
+    };
+    return labels[type] || type;
 }
