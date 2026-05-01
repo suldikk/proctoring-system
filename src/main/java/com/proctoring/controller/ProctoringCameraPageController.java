@@ -10,4 +10,14 @@ public class ProctoringCameraPageController {
     public String index() {
         return "forward:/proctoring-camera/index.html";
     }
+
+    @GetMapping("/exam-demo/")
+    public String examDemo() {
+        return "forward:/exam-demo/index.html";
+    }
+
+    @GetMapping("/proctor-dashboard/")
+    public String proctorDashboard() {
+        return "forward:/proctor-dashboard/index.html";
+    }
 }

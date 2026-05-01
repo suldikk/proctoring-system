@@ -63,6 +63,6 @@ class ProctoringEventServiceTest {
                 )
         ))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Students can only create events for their own sessions");
+                .hasMessage("Session is not visible to the current user");
     }
 }

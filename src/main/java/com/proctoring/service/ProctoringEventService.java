@@ -38,10 +38,7 @@ public class ProctoringEventService {
     public ProctoringEventResponse create(UUID sessionId, CreateProctoringEventRequest request, Authentication authentication) {
         ExamSessionEntity session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
-        if (hasRole(authentication, "ROLE_STUDENT")
-                && !authentication.getName().equalsIgnoreCase(session.getStudent().getEmail())) {
-            throw new AccessDeniedException("Students can only create events for their own sessions");
-        }
+        ensureSessionVisible(session, authentication);
 
         ProctoringEventEntity event = new ProctoringEventEntity();
         event.setSession(session);
@@ -55,10 +52,30 @@ public class ProctoringEventService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProctoringEventResponse> findBySession(UUID sessionId) {
+    public List<ProctoringEventResponse> findBySession(UUID sessionId, Authentication authentication) {
+        ExamSessionEntity session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        ensureSessionVisible(session, authentication);
+
         return eventRepository.findBySessionIdOrderByOccurredAtDesc(sessionId).stream()
                 .map(eventMapper::toResponse)
                 .toList();
+    }
+
+    private void ensureSessionVisible(ExamSessionEntity session, Authentication authentication) {
+        if (hasRole(authentication, "ROLE_ADMIN")) {
+            return;
+        }
+        if (hasRole(authentication, "ROLE_STUDENT")
+                && authentication.getName().equalsIgnoreCase(session.getStudent().getEmail())) {
+            return;
+        }
+        if (hasRole(authentication, "ROLE_PROCTOR")
+                && session.getProctor() != null
+                && authentication.getName().equalsIgnoreCase(session.getProctor().getEmail())) {
+            return;
+        }
+        throw new AccessDeniedException("Session is not visible to the current user");
     }
 
     private boolean hasRole(Authentication authentication, String role) {

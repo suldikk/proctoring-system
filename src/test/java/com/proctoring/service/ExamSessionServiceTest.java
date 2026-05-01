@@ -1,6 +1,7 @@
 package com.proctoring.service;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.proctoring.domain.Role;
@@ -10,6 +11,7 @@ import com.proctoring.repository.ExamSessionRepository;
 import com.proctoring.repository.UserRepository;
 import com.proctoring.repository.entity.UserEntity;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @ExtendWith(MockitoExtension.class)
 class ExamSessionServiceTest {
@@ -96,5 +99,57 @@ class ExamSessionServiceTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Selected proctorId does not belong to a proctor");
+    }
+
+    @Test
+    void findVisibleReturnsOnlyStudentSessionsForStudent() {
+        ExamSessionService examSessionService = new ExamSessionService(
+                examSessionRepository,
+                userRepository,
+                new ExamSessionMapper(),
+                auditService
+        );
+        UUID studentId = UUID.randomUUID();
+        UserEntity student = new UserEntity();
+        student.setId(studentId);
+        student.setEmail("student@example.com");
+        student.setRoles(Set.of(Role.STUDENT));
+
+        when(userRepository.findByEmail("student@example.com")).thenReturn(Optional.of(student));
+        when(examSessionRepository.findByStudentId(studentId)).thenReturn(java.util.List.of());
+
+        examSessionService.findVisible(new UsernamePasswordAuthenticationToken(
+                "student@example.com",
+                null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_STUDENT"))
+        ));
+
+        verify(examSessionRepository).findByStudentId(studentId);
+    }
+
+    @Test
+    void findVisibleReturnsOnlyAssignedSessionsForProctor() {
+        ExamSessionService examSessionService = new ExamSessionService(
+                examSessionRepository,
+                userRepository,
+                new ExamSessionMapper(),
+                auditService
+        );
+        UUID proctorId = UUID.randomUUID();
+        UserEntity proctor = new UserEntity();
+        proctor.setId(proctorId);
+        proctor.setEmail("proctor@example.com");
+        proctor.setRoles(Set.of(Role.PROCTOR));
+
+        when(userRepository.findByEmail("proctor@example.com")).thenReturn(Optional.of(proctor));
+        when(examSessionRepository.findByProctorId(proctorId)).thenReturn(java.util.List.of());
+
+        examSessionService.findVisible(new UsernamePasswordAuthenticationToken(
+                "proctor@example.com",
+                null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_PROCTOR"))
+        ));
+
+        verify(examSessionRepository).findByProctorId(proctorId);
     }
 }

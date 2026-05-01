@@ -66,8 +66,26 @@ public class ExamSessionService {
     }
 
     @Transactional(readOnly = true)
-    public List<ExamSessionResponse> findAll() {
-        return examSessionRepository.findAll().stream()
+    public List<ExamSessionResponse> findVisible(Authentication authentication) {
+        if (hasRole(authentication, "ROLE_ADMIN")) {
+            return examSessionRepository.findAll().stream()
+                    .map(examSessionMapper::toResponse)
+                    .toList();
+        }
+
+        UserEntity currentUser = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new AccessDeniedException("Authenticated user was not found"));
+
+        List<ExamSessionEntity> sessions;
+        if (hasRole(authentication, "ROLE_PROCTOR")) {
+            sessions = examSessionRepository.findByProctorId(currentUser.getId());
+        } else if (hasRole(authentication, "ROLE_STUDENT")) {
+            sessions = examSessionRepository.findByStudentId(currentUser.getId());
+        } else {
+            throw new AccessDeniedException("Unsupported role");
+        }
+
+        return sessions.stream()
                 .map(examSessionMapper::toResponse)
                 .toList();
     }

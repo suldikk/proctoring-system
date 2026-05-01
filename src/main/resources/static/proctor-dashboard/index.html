@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Proctor Dashboard</title>
+    <link rel="stylesheet" href="/proctor-dashboard/styles.css">
+</head>
+<body>
+<main class="layout">
+    <aside class="sidebar">
+        <header>
+            <p class="eyebrow">Proctor console</p>
+            <h1>Live exam monitor</h1>
+        </header>
+
+        <form class="login" id="loginForm">
+            <label>
+                Proctor email
+                <input id="email" type="email" value="proctor@example.com" autocomplete="username" required>
+            </label>
+            <label>
+                Password
+                <input id="password" type="password" value="password123" autocomplete="current-password" required>
+            </label>
+            <button type="submit">Sign in</button>
+        </form>
+
+        <section>
+            <div class="section-title">
+                <h2>Assigned sessions</h2>
+                <button id="refreshSessions" type="button" disabled>Refresh</button>
+            </div>
+            <div class="sessions" id="sessions"></div>
+        </section>
+    </aside>
+
+    <section class="monitor">
+        <div class="topbar">
+            <div>
+                <p class="eyebrow">Selected session</p>
+                <h2 id="sessionTitle">No session selected</h2>
+            </div>
+            <div class="risk" id="riskBadge">No data</div>
+        </div>
+
+        <div class="stats">
+            <div>
+                <span>Total events</span>
+                <strong id="totalEvents">0</strong>
+            </div>
+            <div>
+                <span>Critical events</span>
+                <strong id="criticalEvents">0</strong>
+            </div>
+            <div>
+                <span>Last update</span>
+                <strong id="lastUpdate">-</strong>
+            </div>
+        </div>
+
+        <section class="event-stream">
+            <div class="section-title">
+                <h2>Violation stream</h2>
+                <button id="refreshEvents" type="button" disabled>Refresh</button>
+            </div>
+            <ol id="events"></ol>
+        </section>
+
+        <section class="media-grid">
+            <div>
+                <div class="section-title">
+                    <h2>Camera snapshots</h2>
+                    <button id="refreshSnapshots" type="button" disabled>Refresh</button>
+                </div>
+                <div class="snapshots" id="snapshots"></div>
+            </div>
+            <div>
+                <div class="section-title">
+                    <h2>Recording chunks</h2>
+                    <button id="refreshRecordings" type="button" disabled>Refresh</button>
+                </div>
+                <ol class="recordings" id="recordings"></ol>
+            </div>
+        </section>
+    </section>
+</main>
+
+<script src="/proctor-dashboard/app.js"></script>
+</body>
+</html>

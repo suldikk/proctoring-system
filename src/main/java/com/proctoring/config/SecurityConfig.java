@@ -31,7 +31,9 @@ public class SecurityConfig {
                                 "/h2-console/**",
                                 "/api/auth/**",
                                 "/",
-                                "/proctoring-camera/**"
+                                "/proctoring-camera/**",
+                                "/exam-demo/**",
+                                "/proctor-dashboard/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sessions").hasAnyRole("ADMIN", "PROCTOR")
                         .requestMatchers("/api/sessions/**").authenticated()

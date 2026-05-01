@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Demo Exam</title>
+    <link rel="stylesheet" href="/exam-demo/styles.css">
+</head>
+<body>
+<main class="layout">
+    <section class="exam">
+        <header class="exam-header">
+            <div>
+                <p class="eyebrow">Student workspace</p>
+                <h1>Java Proctoring Demo Exam</h1>
+            </div>
+            <div class="timer" id="timer">10:00</div>
+        </header>
+
+        <form class="login" id="loginForm">
+            <label>
+                Student email
+                <input id="email" type="email" value="student@example.com" autocomplete="username" required>
+            </label>
+            <label>
+                Password
+                <input id="password" type="password" value="password123" autocomplete="current-password" required>
+            </label>
+            <button type="submit">Sign in</button>
+        </form>
+
+        <div class="session-row">
+            <label>
+                Exam session
+                <select id="sessionSelect"></select>
+            </label>
+            <button id="startExam" type="button" disabled>Start exam</button>
+            <button id="finishExam" class="secondary" type="button" disabled>Submit</button>
+        </div>
+
+        <section class="questions" aria-label="Questions">
+            <article class="question">
+                <h2>1. Which Java version is required by this project?</h2>
+                <label><input type="radio" name="q1"> Java 8</label>
+                <label><input type="radio" name="q1"> Java 11</label>
+                <label><input type="radio" name="q1"> Java 17</label>
+            </article>
+            <article class="question">
+                <h2>2. Which layer contains business rules?</h2>
+                <label><input type="radio" name="q2"> Controller</label>
+                <label><input type="radio" name="q2"> Service</label>
+                <label><input type="radio" name="q2"> DTO</label>
+            </article>
+            <article class="question">
+                <h2>3. What does JWT provide in this demo?</h2>
+                <label><input type="radio" name="q3"> Authentication token</label>
+                <label><input type="radio" name="q3"> Database migration</label>
+                <label><input type="radio" name="q3"> Load testing</label>
+            </article>
+            <article class="question">
+                <h2>4. Which event is generated when the tab loses focus?</h2>
+                <label><input type="radio" name="q4"> TAB_SWITCH</label>
+                <label><input type="radio" name="q4"> MANUAL_NOTE</label>
+                <label><input type="radio" name="q4"> NOISE_DETECTED</label>
+            </article>
+        </section>
+    </section>
+
+    <aside class="proctor">
+        <div class="camera-box">
+            <video id="camera" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <div class="camera-empty" id="cameraEmpty">Camera permission appears after exam start</div>
+        </div>
+
+        <div class="signals">
+            <div>
+                <span>Status</span>
+                <strong id="statusText">Not signed in</strong>
+            </div>
+            <div>
+                <span>Faces</span>
+                <strong id="faceCount">0</strong>
+            </div>
+            <div>
+                <span>Violations</span>
+                <strong id="eventCount">0</strong>
+            </div>
+        </div>
+
+        <section class="event-log">
+            <div class="section-title">
+                <h2>Live event log</h2>
+                <button id="manualNote" type="button" disabled>Flag note</button>
+            </div>
+            <ol id="events"></ol>
+        </section>
+    </aside>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<script src="/exam-demo/app.js"></script>
+</body>
+</html>
