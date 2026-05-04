@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Панель проктора</title>
+    <link rel="stylesheet" href="/proctor-dashboard/styles.css?v=20260505-5">
+</head>
+<body>
+<section class="auth-screen" id="authScreen">
+        <form class="auth-card" id="loginForm" autocomplete="off">
+        <p class="eyebrow">Вход проктора</p>
+        <h1>Панель мониторинга</h1>
+        <label>
+            Email проктора
+            <input id="email" type="email" autocomplete="off" required>
+        </label>
+        <label>
+            Пароль
+            <input id="password" type="password" autocomplete="new-password" required>
+        </label>
+        <button type="submit">Войти</button>
+        <div class="auth-status" id="loginStatus">Введите данные проктора, чтобы открыть управление экзаменом.</div>
+    </form>
+</section>
+
+<main class="layout" id="dashboardLayout" hidden>
+    <aside class="sidebar">
+        <header>
+            <p class="eyebrow">Консоль проктора</p>
+            <h1>Мониторинг экзамена</h1>
+        </header>
+
+        <section>
+            <div class="section-title">
+                <h2>Назначенные сессии</h2>
+            </div>
+            <div class="sessions" id="sessions"></div>
+        </section>
+
+        <section class="identity-section">
+            <h2>Контрольный снимок студента</h2>
+            <div class="identity-snapshot" id="identitySnapshot">
+                <div class="empty">Снимок появится после проверки камеры</div>
+            </div>
+        </section>
+    </aside>
+
+    <section class="monitor">
+        <div class="topbar">
+            <div>
+                <p class="eyebrow">Выбранная сессия</p>
+                <h2 id="sessionTitle">Сессия не выбрана</h2>
+            </div>
+            <div class="topbar-actions">
+                <button id="openExamAccess" type="button" disabled>Открыть доступ к экзамену</button>
+                <button id="logoutButton" class="secondary-button" type="button">Выйти</button>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div>
+                <span>Всего нарушений</span>
+                <strong id="totalEvents">0</strong>
+            </div>
+            <div>
+                <span>Последнее обновление</span>
+                <strong id="lastUpdate">-</strong>
+            </div>
+        </div>
+
+        <section class="event-stream">
+            <div class="section-title">
+                <h2>Поток событий</h2>
+            </div>
+            <ol id="events"></ol>
+        </section>
+
+        <section class="media-grid">
+            <div>
+                <div class="section-title">
+                    <h2>Снимки камеры</h2>
+                </div>
+                <div class="snapshots" id="snapshots"></div>
+            </div>
+            <div>
+                <div class="section-title">
+                    <h2>Фрагменты записи</h2>
+                </div>
+                <ol class="recordings" id="recordings"></ol>
+            </div>
+        </section>
+    </section>
+</main>
+
+<script src="/proctor-dashboard/app.js?v=20260505-5"></script>
+</body>
+</html>

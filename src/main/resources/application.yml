@@ -17,6 +17,14 @@ spring:
       port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  servlet:
+    multipart:
+      max-file-size: ${MAX_UPLOAD_FILE_SIZE:25MB}
+      max-request-size: ${MAX_UPLOAD_REQUEST_SIZE:25MB}
+
+proctoring:
+  storage:
+    root: ${PROCTORING_STORAGE_ROOT:storage/proctoring}
 
 security:
   jwt:

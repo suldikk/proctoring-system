@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Камера прокторинга</title>
+    <link rel="stylesheet" href="/proctoring-camera/styles.css">
+</head>
+<body>
+<main class="shell">
+    <section class="workspace" aria-label="Камера">
+        <div class="topbar">
+            <div>
+                <p class="eyebrow">Камера</p>
+                <h1>Фиксация лица</h1>
+            </div>
+            <div class="status" id="detectorStatus">Модель не загружена</div>
+        </div>
+
+        <div class="camera-frame">
+            <video id="camera" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <div class="camera-empty" id="cameraEmpty">Войдите и запустите камеру</div>
+        </div>
+
+        <div class="metrics" aria-label="Состояние кадра">
+            <div>
+                <span>Лиц в кадре</span>
+                <strong id="faceCount">0</strong>
+            </div>
+            <div>
+                <span>Нарушений</span>
+                <strong id="eventCount">0</strong>
+            </div>
+            <div>
+                <span>Сессия</span>
+                <strong id="currentSession">-</strong>
+            </div>
+            <div>
+                <span>Осталось</span>
+                <strong id="remainingTime">-</strong>
+            </div>
+        </div>
+    </section>
+
+    <aside class="panel" aria-label="Управление и журнал">
+        <form class="login" id="loginForm">
+            <label>
+                Email
+                <input id="email" type="email" value="proctor@example.com" autocomplete="username" required>
+            </label>
+            <label>
+                Пароль
+                <input id="password" type="password" value="password123" autocomplete="current-password" required>
+            </label>
+            <button type="submit">Войти</button>
+        </form>
+
+        <div class="session-picker">
+            <label>
+                Экзаменационная сессия
+                <select id="sessionSelect"></select>
+            </label>
+            <label>
+                Длительность прокторинга
+                <select id="durationMinutes">
+                    <option value="5">5 минут</option>
+                    <option value="15">15 минут</option>
+                    <option value="30" selected>30 минут</option>
+                    <option value="60">1 час</option>
+                    <option value="120">2 часа</option>
+                    <option value="0">Без таймера</option>
+                </select>
+            </label>
+            <div class="camera-controls">
+                <button id="startCamera" type="button" disabled>Запустить</button>
+                <button id="stopCamera" class="secondary" type="button" disabled>Остановить</button>
+            </div>
+        </div>
+
+        <section>
+            <div class="section-heading">
+                <h2>Журнал нарушений</h2>
+                <button id="refreshEvents" type="button" disabled>Обновить</button>
+            </div>
+            <ol class="events" id="events"></ol>
+        </section>
+    </aside>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<script src="/proctoring-camera/app.js"></script>
+</body>
+</html>

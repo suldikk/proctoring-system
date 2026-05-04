@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Демо-экзамен</title>
+    <link rel="stylesheet" href="/exam-demo/styles.css?v=20260505-4">
+</head>
+<body>
+<div class="access-toast" id="accessToast" hidden>Доступ к экзамену закрыт</div>
+
+<section class="auth-screen" id="authScreen">
+    <form class="auth-card" id="loginForm" autocomplete="off">
+        <p class="eyebrow">Вход студента</p>
+        <h1>Демо-экзамен по Java</h1>
+        <label>
+            ИИН студента
+            <input id="iin" type="text" inputmode="numeric" autocomplete="off" maxlength="12" required>
+        </label>
+        <label>
+            Пароль
+            <input id="password" type="password" autocomplete="new-password" required>
+        </label>
+        <label>
+            Язык интерфейса
+            <select id="languageSelect">
+                <option value="ru" selected>Русский</option>
+                <option value="kk">Қазақша</option>
+            </select>
+        </label>
+        <button type="submit">Войти</button>
+        <div class="auth-status" id="loginStatus">Введите ИИН студента и пароль, чтобы перейти к экзамену.</div>
+    </form>
+</section>
+
+<section class="media-check-screen" id="mediaCheckScreen" hidden>
+    <div class="auth-card">
+        <p class="eyebrow">Проверка оборудования</p>
+        <h1>Проверяем камеру и микрофон</h1>
+        <div class="media-check-preview">
+            <video id="mediaCheckVideo" autoplay muted playsinline></video>
+            <canvas id="mediaCheckOverlay"></canvas>
+            <div class="camera-empty" id="mediaCheckEmpty">Ожидаем доступ к камере</div>
+        </div>
+        <div class="auth-status" id="mediaCheckStatus">
+            Разрешите доступ к камере и микрофону. После появления изображения сделайте контрольный снимок.
+        </div>
+        <button id="identitySnapshotButton" type="button" disabled>Сделать снимок</button>
+    </div>
+</section>
+
+<section class="extension-screen" id="extensionScreen" hidden>
+    <div class="auth-card">
+        <p class="eyebrow">Проверка расширения</p>
+        <h1>Включите расширение прокторинга</h1>
+        <div class="auth-status" id="extensionGateStatus">
+            После запуска расширения нажмите кнопку ниже. Если расширение отвечает, экзамен откроется автоматически.
+        </div>
+        <button id="extensionCheckButton" class="secondary" type="button">Я запустил расширение</button>
+    </div>
+</section>
+
+<div class="fullscreen-warning" id="fullscreenWarning" hidden>
+    <div>
+        <h2>Экзамен приостановлен</h2>
+        <p>Вернитесь в полноэкранный режим, чтобы продолжить тестирование.</p>
+        <button id="returnFullscreen" type="button">Вернуться в полноэкранный режим</button>
+    </div>
+</div>
+
+<div class="screenshot-warning" id="screenshotWarning" hidden>
+    <div>
+        <h2>Скриншот заблокирован</h2>
+        <p>Во время экзамена запрещено фиксировать экран. Нарушение отправлено проктору.</p>
+    </div>
+</div>
+
+<div class="exam-failed-warning" id="examFailedWarning" hidden>
+    <div>
+        <h2>Экзамен остановлен</h2>
+        <p>В кадре обнаружен телефон. Экзамен для студента завершён и считается проваленным.</p>
+        <button id="failedLogoutButton" type="button">Выйти из аккаунта</button>
+    </div>
+</div>
+
+<div class="face-missing-warning" id="faceMissingWarning" hidden>
+    <div>
+        <h2>Лицо не найдено</h2>
+        <p>Вернитесь в кадр камеры. После обнаружения лица тест продолжится автоматически.</p>
+    </div>
+</div>
+
+<main class="layout" id="examLayout" hidden>
+    <aside class="camera-panel">
+        <div class="camera-box">
+            <video id="camera" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            <div class="camera-empty" id="cameraEmpty">Демо-окно прокторинга</div>
+        </div>
+        <div class="camera-status" id="extensionState">Расширение прокторинга не найдено</div>
+    </aside>
+
+    <section class="exam">
+        <header class="exam-header">
+            <div>
+                <p class="eyebrow">Рабочее место студента</p>
+                <h1>Демо-экзамен по Java</h1>
+            </div>
+            <div class="timer-wrap">
+                <span>Осталось</span>
+                <strong id="timer">30:00</strong>
+            </div>
+            <button id="finishExam" class="secondary" type="button" disabled>Отправить</button>
+            <button id="logoutButton" class="secondary logout-button" type="button">Выйти</button>
+        </header>
+
+        <div class="student-card">
+            <div>
+                <span>ФИО</span>
+                <strong id="studentName">Аскаров Султанали</strong>
+            </div>
+            <div>
+                <span>Группа</span>
+                <strong id="studentGroup">ВТ-24б ТиПО</strong>
+            </div>
+            <div>
+                <span>Дисциплина</span>
+                <strong id="disciplineName">Java</strong>
+            </div>
+            <div>
+                <span>Вопросов</span>
+                <strong id="questionCount">5</strong>
+            </div>
+        </div>
+
+        <div class="session-row" hidden>
+            <label>
+                Экзаменационная сессия
+                <select id="sessionSelect"></select>
+            </label>
+        </div>
+
+        <div id="statusText" hidden>Готовим экзаменационную среду</div>
+
+        <div class="exam-result" id="examResult" hidden></div>
+
+        <div class="time-warning" id="timeWarning" hidden>
+            До конца экзамена осталось 5 минут.
+        </div>
+
+        <section class="questions" aria-label="Вопросы">
+            <article class="question" data-question="q1" data-correct="Java 17">
+                <div class="question-head">
+                    <h2>1. Какая версия Java используется в проекте?</h2>
+                    <span class="score-badge">20 баллов</span>
+                </div>
+                <label data-answer="Java 8"><input type="radio" name="q1" value="Java 8"> Java 8</label>
+                <label data-answer="Java 11"><input type="radio" name="q1" value="Java 11"> Java 11</label>
+                <label data-answer="Java 17"><input type="radio" name="q1" value="Java 17"> Java 17</label>
+            </article>
+            <article class="question" data-question="q2" data-correct="Сервис">
+                <div class="question-head">
+                    <h2>2. В каком слое находятся бизнес-правила?</h2>
+                    <span class="score-badge">20 баллов</span>
+                </div>
+                <label data-answer="Контроллер"><input type="radio" name="q2" value="Контроллер"> Контроллер</label>
+                <label data-answer="Сервис"><input type="radio" name="q2" value="Сервис"> Сервис</label>
+                <label data-answer="DTO"><input type="radio" name="q2" value="DTO"> DTO</label>
+            </article>
+            <article class="question" data-question="q3" data-correct="Для токена аутентификации">
+                <div class="question-head">
+                    <h2>3. Для чего используется JWT?</h2>
+                    <span class="score-badge">20 баллов</span>
+                </div>
+                <label data-answer="Для токена аутентификации"><input type="radio" name="q3" value="Для токена аутентификации"> Для токена аутентификации</label>
+                <label data-answer="Для миграции базы данных"><input type="radio" name="q3" value="Для миграции базы данных"> Для миграции базы данных</label>
+                <label data-answer="Для нагрузочного тестирования"><input type="radio" name="q3" value="Для нагрузочного тестирования"> Для нагрузочного тестирования</label>
+            </article>
+            <article class="question" data-question="q4" data-correct="TAB_SWITCH">
+                <div class="question-head">
+                    <h2>4. Какое событие создаётся при переключении вкладки?</h2>
+                    <span class="score-badge">20 баллов</span>
+                </div>
+                <label data-answer="TAB_SWITCH"><input type="radio" name="q4" value="TAB_SWITCH"> TAB_SWITCH</label>
+                <label data-answer="MANUAL_NOTE"><input type="radio" name="q4" value="MANUAL_NOTE"> MANUAL_NOTE</label>
+                <label data-answer="NOISE_DETECTED"><input type="radio" name="q4" value="NOISE_DETECTED"> NOISE_DETECTED</label>
+            </article>
+            <article class="question" data-question="q5" data-correct="Flyway">
+                <div class="question-head">
+                    <h2>5. Какой инструмент используется для миграций базы данных?</h2>
+                    <span class="score-badge">20 баллов</span>
+                </div>
+                <label data-answer="Flyway"><input type="radio" name="q5" value="Flyway"> Flyway</label>
+                <label data-answer="Lombok"><input type="radio" name="q5" value="Lombok"> Lombok</label>
+                <label data-answer="Maven Surefire"><input type="radio" name="q5" value="Maven Surefire"> Maven Surefire</label>
+            </article>
+        </section>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<script src="/exam-demo/app.js?v=20260505-4"></script>
+</body>
+</html>
+

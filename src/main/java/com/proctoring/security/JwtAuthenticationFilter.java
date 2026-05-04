@@ -1,6 +1,7 @@
 package com.proctoring.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,11 +37,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authorization.substring(7);
-        Claims claims = jwtService.parseClaims(token);
+        Claims claims;
+        try {
+            claims = jwtService.parseClaims(token);
+        } catch (JwtException | IllegalArgumentException exception) {
+            SecurityContextHolder.clearContext();
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+            return;
+        }
         Collection<SimpleGrantedAuthority> authorities = extractRoles(claims).stream()
                 .map(SimpleGrantedAuthority::new)
                 .toList();
 
+        SecurityContextHolder.clearContext();
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 claims.getSubject(),
                 null,

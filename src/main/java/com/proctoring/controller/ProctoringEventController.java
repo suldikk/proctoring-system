@@ -39,8 +39,8 @@ public class ProctoringEventController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROCTOR')")
-    public List<ProctoringEventResponse> findBySession(@PathVariable UUID sessionId) {
-        return eventService.findBySession(sessionId);
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROCTOR', 'STUDENT')")
+    public List<ProctoringEventResponse> findBySession(@PathVariable UUID sessionId, Authentication authentication) {
+        return eventService.findBySession(sessionId, authentication);
     }
 }

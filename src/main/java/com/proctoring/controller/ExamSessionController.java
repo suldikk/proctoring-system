@@ -37,9 +37,9 @@ public class ExamSessionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROCTOR')")
-    public List<ExamSessionResponse> findAll() {
-        return examSessionService.findAll();
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROCTOR', 'STUDENT')")
+    public List<ExamSessionResponse> findVisible(Authentication authentication) {
+        return examSessionService.findVisible(authentication);
     }
 
     @PatchMapping("/{id}/status/{status}")
