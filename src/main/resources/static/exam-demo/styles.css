@@ -1,15 +1,22 @@
 :root {
     color-scheme: light;
     --ink: #182027;
-    --muted: #64727d;
-    --line: #d9e0e5;
-    --page: #f1f4f6;
+    --muted: #687783;
+    --line: #dbe3e8;
+    --page: #eef3f6;
     --panel: #ffffff;
-    --accent: #0b7a75;
-    --accent-dark: #075c58;
+    --panel-soft: #f7fafb;
+    --accent: #126b64;
+    --accent-dark: #0b4f49;
+    --accent-soft: #e5f3f1;
+    --navy: #233b5d;
     --danger: #b42318;
+    --danger-soft: #fff1ef;
     --warn: #a15c07;
+    --warn-soft: #fff6e8;
     --ok: #20744a;
+    --ok-soft: #edf8f1;
+    --shadow: 0 18px 45px rgba(35, 59, 93, .10);
 }
 
 * {
@@ -19,42 +26,11 @@
 body {
     margin: 0;
     min-height: 100vh;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
     color: var(--ink);
-    background: var(--page);
-}
-
-.auth-screen,
-.extension-screen {
-    display: grid;
-    min-height: 100vh;
-    place-items: center;
-    padding: 18px;
-}
-
-.auth-screen[hidden],
-.extension-screen[hidden],
-.layout[hidden] {
-    display: none;
-}
-
-.auth-card {
-    display: grid;
-    width: min(440px, 100%);
-    gap: 14px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 22px;
-    background: var(--panel);
-}
-
-.auth-status {
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 10px;
-    color: var(--muted);
-    font-size: 13px;
-    background: #ffffff;
+    background:
+        linear-gradient(180deg, rgba(18, 107, 100, .08), rgba(238, 243, 246, 0) 260px),
+        var(--page);
 }
 
 button,
@@ -64,19 +40,36 @@ select {
 }
 
 button {
-    min-height: 40px;
+    min-height: 42px;
     border: 0;
-    border-radius: 6px;
-    padding: 0 14px;
+    border-radius: 7px;
+    padding: 0 16px;
     color: #ffffff;
+    font-weight: 700;
     background: var(--accent);
     cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+button:hover:not(:disabled) {
+    background: var(--accent-dark);
+    box-shadow: 0 10px 22px rgba(18, 107, 100, .18);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(1px);
 }
 
 button.secondary {
-    border: 1px solid var(--accent-dark);
-    color: var(--accent-dark);
+    border: 1px solid var(--line);
+    color: var(--navy);
     background: #ffffff;
+}
+
+button.secondary:hover:not(:disabled) {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    box-shadow: none;
 }
 
 button:disabled {
@@ -87,26 +80,111 @@ button:disabled {
 input,
 select {
     width: 100%;
-    min-height: 40px;
+    min-height: 42px;
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 7px;
+    padding: 9px 11px;
     color: var(--ink);
     background: #ffffff;
+    outline: none;
+}
+
+input:focus,
+select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(18, 107, 100, .12);
 }
 
 label {
     display: grid;
-    gap: 6px;
+    gap: 7px;
     color: var(--muted);
     font-size: 13px;
+    font-weight: 600;
+}
+
+.auth-screen,
+.extension-screen,
+.media-check-screen {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 20px;
+}
+
+.auth-screen[hidden],
+.extension-screen[hidden],
+.media-check-screen[hidden],
+.layout[hidden],
+.session-row[hidden] {
+    display: none;
+}
+
+.auth-card {
+    position: relative;
+    display: grid;
+    width: min(460px, 100%);
+    gap: 15px;
+    border: 1px solid rgba(219, 227, 232, .9);
+    border-radius: 8px;
+    padding: 26px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+}
+
+.auth-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 5px;
+    border-radius: 8px 8px 0 0;
+    background: linear-gradient(90deg, var(--accent), #d59b2d, var(--navy));
+}
+
+.auth-status {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 11px 12px;
+    color: var(--muted);
+    font-size: 13px;
+    background: var(--panel-soft);
+}
+
+.media-check-preview {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    min-height: 260px;
+    place-items: center;
+    border-radius: 8px;
+    background: #172332;
+}
+
+.access-toast {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 30;
+    max-width: 320px;
+    border: 1px solid #efcf9f;
+    border-radius: 8px;
+    padding: 13px 15px;
+    color: var(--warn);
+    font-weight: 800;
+    background: var(--warn-soft);
+    box-shadow: var(--shadow);
+}
+
+.access-toast[hidden] {
+    display: none;
 }
 
 .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: 330px minmax(0, 1fr);
+    align-items: start;
     gap: 18px;
-    width: min(1280px, 100%);
+    width: min(1320px, 100%);
     margin: 0 auto;
     padding: 18px;
 }
@@ -115,13 +193,15 @@ label {
 .camera-panel {
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--panel);
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 12px 32px rgba(35, 59, 93, .07);
 }
 
 .exam {
+    grid-column: 2;
     display: grid;
     gap: 18px;
-    padding: 20px;
+    padding: 22px;
 }
 
 .exam-header,
@@ -130,6 +210,12 @@ label {
     align-items: end;
     justify-content: space-between;
     gap: 12px;
+}
+
+.exam-header {
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 18px;
 }
 
 .logout-button {
@@ -145,27 +231,33 @@ p {
 }
 
 .eyebrow {
-    color: var(--muted);
-    font-size: 13px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 
 h1 {
-    margin-top: 4px;
-    font-size: 28px;
+    margin-top: 5px;
+    color: var(--navy);
+    font-size: 30px;
     line-height: 1.15;
 }
 
 h2 {
+    color: var(--navy);
     font-size: 17px;
     line-height: 1.3;
 }
 
 .timer-wrap {
-    min-width: 120px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 8px 12px;
+    min-width: 124px;
+    border: 1px solid #cfdde3;
+    border-radius: 8px;
+    padding: 9px 13px;
     text-align: center;
+    background: var(--panel-soft);
 }
 
 .timer-wrap span,
@@ -178,7 +270,8 @@ h2 {
 .timer-wrap strong {
     display: block;
     margin-top: 3px;
-    font-size: 22px;
+    color: var(--accent-dark);
+    font-size: 24px;
 }
 
 .student-card {
@@ -191,24 +284,25 @@ h2 {
 .requirements div,
 .time-warning {
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 10px;
-    background: #ffffff;
+    border-radius: 8px;
+    padding: 12px;
+    background: var(--panel-soft);
 }
 
 .student-card strong {
     display: block;
     overflow: hidden;
     margin-top: 4px;
+    color: var(--navy);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.login {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    align-items: end;
-    gap: 10px;
+.session-row {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: #ffffff;
 }
 
 .session-row label {
@@ -226,60 +320,173 @@ h2 {
 .requirements .ok {
     border-color: #b8dfc8;
     color: var(--ok);
-    background: #f0faf4;
+    background: var(--ok-soft);
 }
 
 .requirements .warn,
 .time-warning {
     border-color: #efcf9f;
     color: var(--warn);
-    background: #fff8ec;
+    background: var(--warn-soft);
 }
 
 .time-warning {
-    font-weight: 700;
+    font-weight: 800;
+}
+
+.exam-result {
+    border: 1px solid #b8dfc8;
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--ok);
+    font-size: 18px;
+    font-weight: 900;
+    background: var(--ok-soft);
+}
+
+.exam-result[hidden] {
+    display: none;
 }
 
 .questions {
     display: grid;
     gap: 12px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .question {
     display: grid;
-    gap: 10px;
+    gap: 11px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 16px;
+    padding: 17px;
+    background: #ffffff;
+}
+
+.question-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.score-badge {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 10px;
+    color: var(--navy);
+    font-size: 12px;
+    font-weight: 800;
+    background: var(--panel-soft);
+}
+
+.score-badge.correct {
+    border-color: #b8dfc8;
+    color: var(--ok);
+    background: var(--ok-soft);
+}
+
+.score-badge.wrong {
+    border-color: #efb4ad;
+    color: var(--danger);
+    background: var(--danger-soft);
 }
 
 .question label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    min-height: 34px;
+    gap: 9px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 6px 8px;
     color: var(--ink);
     font-size: 14px;
+    font-weight: 500;
+}
+
+.question.checked label {
+    pointer-events: none;
+}
+
+.question label.answer-correct {
+    border-color: #8fd1aa;
+    color: var(--ok);
+    background: var(--ok-soft);
+}
+
+.question label.answer-wrong {
+    border-color: #efb4ad;
+    color: var(--danger);
+    background: var(--danger-soft);
+}
+
+.question label:hover {
+    border-color: var(--line);
+    background: var(--panel-soft);
+}
+
+.question.checked label.answer-correct:hover {
+    border-color: #8fd1aa;
+    background: var(--ok-soft);
+}
+
+.question.checked label.answer-wrong:hover {
+    border-color: #efb4ad;
+    background: var(--danger-soft);
 }
 
 .question input {
     width: auto;
     min-height: auto;
+    accent-color: var(--accent);
 }
 
 .camera-panel {
+    position: sticky;
+    top: 18px;
+    grid-column: 1;
     display: grid;
     align-content: start;
-    padding: 16px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .camera-box {
     position: relative;
     overflow: hidden;
     display: grid;
-    min-height: 260px;
+    min-height: 250px;
     place-items: center;
     border-radius: 8px;
-    background: #182027;
+    background: #172332;
+    box-shadow: 0 12px 32px rgba(35, 59, 93, .12);
+}
+
+.camera-status {
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--panel);
+}
+
+.camera-status.ok {
+    border-color: #b8dfc8;
+    color: var(--ok);
+    background: var(--ok-soft);
+}
+
+.camera-status.warn {
+    border-color: #efcf9f;
+    color: var(--warn);
+    background: var(--warn-soft);
 }
 
 video,
@@ -301,12 +508,15 @@ canvas {
 
 .camera-empty {
     z-index: 1;
-    padding: 16px;
+    padding: 18px;
     color: #dce6ea;
     text-align: center;
 }
 
-.fullscreen-warning {
+.fullscreen-warning,
+.screenshot-warning,
+.exam-failed-warning,
+.face-missing-warning {
     position: fixed;
     inset: 0;
     z-index: 20;
@@ -314,35 +524,90 @@ canvas {
     place-items: center;
     padding: 24px;
     color: #ffffff;
-    background: rgba(0, 0, 0, .92);
+    background: rgba(10, 22, 34, .94);
 }
 
-.fullscreen-warning[hidden] {
+.fullscreen-warning[hidden],
+.screenshot-warning[hidden],
+.exam-failed-warning[hidden],
+.face-missing-warning[hidden] {
     display: none;
 }
 
-.fullscreen-warning div {
+.fullscreen-warning div,
+.screenshot-warning div,
+.exam-failed-warning div,
+.face-missing-warning div {
     display: grid;
-    max-width: 520px;
+    max-width: 540px;
     gap: 14px;
     text-align: center;
 }
 
-.fullscreen-warning h2 {
+.fullscreen-warning h2,
+.screenshot-warning h2,
+.exam-failed-warning h2,
+.face-missing-warning h2 {
+    color: #ffffff;
     font-size: 28px;
+}
+
+.screenshot-warning {
+    z-index: 35;
+    background: #07111c;
+}
+
+.exam-failed-warning {
+    z-index: 40;
+    background: rgba(91, 13, 9, .96);
+}
+
+.face-missing-warning {
+    z-index: 38;
+    background: rgba(10, 22, 34, .92);
+}
+
+@media print {
+    body {
+        visibility: hidden;
+    }
+
+    body::before {
+        content: "Печать страницы экзамена запрещена";
+        visibility: visible;
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #ffffff;
+        background: #07111c;
+        font: 700 24px "Segoe UI", Arial, sans-serif;
+    }
 }
 
 @media (max-width: 920px) {
     .layout,
-    .login,
     .student-card,
     .requirements {
         grid-template-columns: 1fr;
+    }
+
+    .exam,
+    .camera-panel {
+        grid-column: auto;
+    }
+
+    .camera-panel {
+        position: static;
     }
 
     .session-row,
     .exam-header {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .logout-button {
+        margin-left: 0;
     }
 }

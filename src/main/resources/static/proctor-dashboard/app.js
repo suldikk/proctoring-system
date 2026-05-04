@@ -5,20 +5,19 @@ const state = {
     refreshTimer: null,
 };
 
+const authScreen = document.getElementById('authScreen');
+const dashboardLayout = document.getElementById('dashboardLayout');
 const loginForm = document.getElementById('loginForm');
-const refreshSessions = document.getElementById('refreshSessions');
-const refreshEvents = document.getElementById('refreshEvents');
-const refreshSnapshots = document.getElementById('refreshSnapshots');
-const refreshRecordings = document.getElementById('refreshRecordings');
-const clearArtifacts = document.getElementById('clearArtifacts');
+const loginStatus = document.getElementById('loginStatus');
+const openExamAccess = document.getElementById('openExamAccess');
+const logoutButton = document.getElementById('logoutButton');
 const sessionsList = document.getElementById('sessions');
 const eventsList = document.getElementById('events');
 const snapshotsList = document.getElementById('snapshots');
+const identitySnapshot = document.getElementById('identitySnapshot');
 const recordingsList = document.getElementById('recordings');
 const sessionTitle = document.getElementById('sessionTitle');
-const riskBadge = document.getElementById('riskBadge');
 const totalEvents = document.getElementById('totalEvents');
-const criticalEvents = document.getElementById('criticalEvents');
 const lastUpdate = document.getElementById('lastUpdate');
 const VISIBLE_EVENT_TYPES = new Set([
     'FULLSCREEN_EXIT',
@@ -26,6 +25,9 @@ const VISIBLE_EVENT_TYPES = new Set([
     'FACE_NOT_DETECTED',
     'MULTIPLE_FACES',
     'PHONE_DETECTED',
+    'EXAM_FAILED_PHONE',
+    'SCREENSHOT_ATTEMPT',
+    'COPY_ATTEMPT',
 ]);
 
 loginForm.addEventListener('submit', async (event) => {
@@ -33,20 +35,22 @@ loginForm.addEventListener('submit', async (event) => {
     await login();
 });
 
-refreshSessions.addEventListener('click', loadSessions);
-refreshEvents.addEventListener('click', loadEvents);
-refreshSnapshots.addEventListener('click', loadSnapshots);
-refreshRecordings.addEventListener('click', loadRecordings);
-clearArtifacts.addEventListener('click', cleanupArtifacts);
+openExamAccess.addEventListener('click', openAccess);
+logoutButton.addEventListener('click', logout);
 
 if (state.token) {
+    showDashboard();
     loadSessions().catch(() => {
         localStorage.removeItem('proctorDashboardToken');
         state.token = '';
+        showAuth('Сессия проктора истекла. Войдите заново.');
     });
+} else {
+    showAuth('Введите данные проктора, чтобы открыть управление экзаменом.');
 }
 
 async function login() {
+    loginStatus.textContent = 'Вход в систему...';
     const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,26 +61,81 @@ async function login() {
     });
 
     if (!response.ok) {
-        renderEmpty('Не удалось войти');
+        loginStatus.textContent = 'Не удалось войти. Проверьте email и пароль.';
         return;
     }
 
     const body = await response.json();
     state.token = body.token;
     localStorage.setItem('proctorDashboardToken', state.token);
+    showDashboard();
     await loadSessions();
+}
+
+function showDashboard() {
+    authScreen.hidden = true;
+    dashboardLayout.hidden = false;
+}
+
+function showAuth(message) {
+    authScreen.hidden = false;
+    dashboardLayout.hidden = true;
+    loginStatus.textContent = message;
+}
+
+async function logout() {
+    clearInterval(state.refreshTimer);
+    logoutButton.disabled = true;
+    logoutButton.textContent = 'Выход...';
+    await closeExamAccess().catch((error) => console.error(error));
+    await cleanupAllArtifacts().catch((error) => console.error(error));
+    localStorage.removeItem('proctorDashboardToken');
+    state.token = '';
+    state.sessions = [];
+    state.selectedSessionId = '';
+    sessionsList.innerHTML = '';
+    eventsList.innerHTML = '';
+    snapshotsList.innerHTML = '';
+    identitySnapshot.innerHTML = '<div class="empty">Снимок появится после проверки камеры</div>';
+    recordingsList.innerHTML = '';
+    sessionTitle.textContent = 'Сессия не выбрана';
+    totalEvents.textContent = '0';
+    lastUpdate.textContent = '-';
+    showAuth('Вы вышли из аккаунта. Введите данные проктора, чтобы открыть управление экзаменом.');
+    logoutButton.disabled = false;
+    logoutButton.textContent = 'Выйти';
+}
+
+async function closeExamAccess() {
+    const activeSessionIds = state.sessions
+        .filter((session) => session.status === 'ACTIVE')
+        .map((session) => session.id);
+
+    for (const sessionId of activeSessionIds) {
+        await api(`/api/sessions/${sessionId}/status/CREATED`, {
+            method: 'PATCH',
+        });
+    }
+}
+
+async function cleanupAllArtifacts() {
+    const sessionIds = [...new Set(state.sessions.map((session) => session.id))];
+    for (const sessionId of sessionIds) {
+        await api(`/api/sessions/${sessionId}/proctoring-artifacts`, {
+            method: 'DELETE',
+        });
+    }
 }
 
 async function loadSessions() {
     const response = await api('/api/sessions');
     state.sessions = await response.json();
-    refreshSessions.disabled = false;
     renderSessions();
 
     if (!state.selectedSessionId && state.sessions.length > 0) {
         selectSession(state.sessions[0].id);
     } else if (state.selectedSessionId) {
-        await loadEvents();
+        await selectSession(state.selectedSessionId);
     }
 }
 
@@ -109,10 +168,10 @@ async function selectSession(sessionId) {
     renderSessions();
     const session = state.sessions.find((item) => item.id === sessionId);
     sessionTitle.textContent = session ? session.examTitle : 'Выбранная сессия';
-    refreshEvents.disabled = false;
-    refreshSnapshots.disabled = false;
-    refreshRecordings.disabled = false;
-    clearArtifacts.disabled = false;
+    openExamAccess.disabled = session ? session.status === 'ACTIVE' : true;
+    openExamAccess.textContent = session && session.status === 'ACTIVE'
+        ? 'Доступ открыт'
+        : 'Открыть доступ к экзамену';
     await refreshSessionArtifacts();
 
     clearInterval(state.refreshTimer);
@@ -129,22 +188,17 @@ async function loadEvents() {
     renderEvents(events);
 }
 
-async function cleanupArtifacts() {
+async function openAccess() {
     if (!state.selectedSessionId) {
         return;
     }
 
-    const confirmed = window.confirm('Очистить нарушения, снимки и фрагменты записи для выбранной сессии?');
-    if (!confirmed) {
-        return;
-    }
-
-    clearArtifacts.disabled = true;
-    await api(`/api/sessions/${state.selectedSessionId}/proctoring-artifacts`, {
-        method: 'DELETE',
+    openExamAccess.disabled = true;
+    openExamAccess.textContent = 'Открываем доступ...';
+    await api(`/api/sessions/${state.selectedSessionId}/status/ACTIVE`, {
+        method: 'PATCH',
     });
-    await refreshSessionArtifacts();
-    clearArtifacts.disabled = false;
+    await loadSessions();
 }
 
 async function refreshSessionArtifacts() {
@@ -158,21 +212,17 @@ async function refreshSessionArtifacts() {
 function renderEvents(events) {
     const visibleEvents = events.filter((event) => VISIBLE_EVENT_TYPES.has(event.type));
     totalEvents.textContent = String(visibleEvents.length);
-    criticalEvents.textContent = String(visibleEvents.filter((event) => event.severity >= 4).length);
     lastUpdate.textContent = new Date().toLocaleTimeString();
-    renderRisk(visibleEvents);
 
     eventsList.innerHTML = '';
     if (visibleEvents.length === 0) {
-        renderEmpty('Нарушений пока нет', eventsList);
+        renderEmpty('Событий пока нет', eventsList);
         return;
     }
 
     visibleEvents.slice(0, 40).forEach((event) => {
         const item = document.createElement('li');
-        if (event.severity >= 4) {
-            item.classList.add('critical');
-        }
+        item.classList.add('critical');
         item.innerHTML = `
             <div class="event-meta">
                 <span>${new Date(event.occurredAt).toLocaleString()}</span>
@@ -197,12 +247,15 @@ async function loadSnapshots() {
 
 async function renderSnapshots(snapshots) {
     snapshotsList.innerHTML = '';
-    if (snapshots.length === 0) {
+    renderIdentitySnapshot(snapshots);
+    const regularSnapshots = snapshots.slice(0, Math.max(0, snapshots.length - 1));
+
+    if (regularSnapshots.length === 0) {
         renderEmpty('Снимки пока не сохранены', snapshotsList);
         return;
     }
 
-    const latest = snapshots.slice(0, 8);
+    const latest = regularSnapshots.slice(0, 8);
     for (const snapshot of latest) {
         const blobUrl = await authenticatedBlobUrl(`/api/sessions/${state.selectedSessionId}/snapshots/${snapshot.id}/file`);
         const item = document.createElement('div');
@@ -214,6 +267,25 @@ async function renderSnapshots(snapshots) {
         item.querySelector('img').src = blobUrl;
         snapshotsList.append(item);
     }
+}
+
+async function renderIdentitySnapshot(snapshots) {
+    identitySnapshot.innerHTML = '';
+    if (snapshots.length === 0) {
+        renderEmpty('Снимок появится после проверки камеры', identitySnapshot);
+        return;
+    }
+
+    const firstSnapshot = snapshots[snapshots.length - 1];
+    const blobUrl = await authenticatedBlobUrl(`/api/sessions/${state.selectedSessionId}/snapshots/${firstSnapshot.id}/file`);
+    const item = document.createElement('div');
+    item.className = 'snapshot identity-card';
+    item.innerHTML = `
+        <img alt="Контрольный снимок студента">
+        <span>${new Date(firstSnapshot.capturedAt).toLocaleString()} | ${formatBytes(firstSnapshot.sizeBytes)}</span>
+    `;
+    item.querySelector('img').src = blobUrl;
+    identitySnapshot.append(item);
 }
 
 async function loadRecordings() {
@@ -250,25 +322,6 @@ function renderRecordings(chunks) {
         });
         recordingsList.append(item);
     });
-}
-
-function renderRisk(events) {
-    riskBadge.className = 'risk';
-    const criticalCount = events.filter((event) => event.severity >= 4).length;
-    const maxSeverity = events.reduce((max, event) => Math.max(max, event.severity), 0);
-
-    if (criticalCount >= 3 || maxSeverity >= 5) {
-        riskBadge.textContent = 'Высокий риск';
-        riskBadge.classList.add('high');
-    } else if (events.length >= 3 || maxSeverity >= 3) {
-        riskBadge.textContent = 'Средний риск';
-        riskBadge.classList.add('medium');
-    } else if (events.length > 0) {
-        riskBadge.textContent = 'Низкий риск';
-        riskBadge.classList.add('low');
-    } else {
-        riskBadge.textContent = 'Нет данных';
-    }
 }
 
 function renderEmpty(message, target = sessionsList) {
@@ -312,8 +365,10 @@ function shortId(id) {
 function statusLabel(status) {
     const labels = {
         CREATED: 'Создана',
+        ACTIVE: 'Доступ открыт',
         IN_PROGRESS: 'Идёт',
         COMPLETED: 'Завершена',
+        FLAGGED: 'На проверке',
         CANCELLED: 'Отменена',
     };
     return labels[status] || status;
@@ -324,8 +379,11 @@ function eventTypeLabel(type) {
         FACE_NOT_DETECTED: 'Лицо не обнаружено',
         MULTIPLE_FACES: 'Больше одного лица',
         PHONE_DETECTED: 'Телефон в кадре',
-        TAB_SWITCH: 'Новая вкладка или потеря фокуса',
+        EXAM_FAILED_PHONE: 'Экзамен остановлен и провален',
+        TAB_SWITCH: 'Новая вкладка',
         FULLSCREEN_EXIT: 'Выход из полноэкранного режима',
+        SCREENSHOT_ATTEMPT: 'Попытка скриншота',
+        COPY_ATTEMPT: 'Попытка копирования теста',
     };
     return labels[type] || type;
 }
