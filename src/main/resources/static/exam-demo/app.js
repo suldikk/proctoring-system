@@ -29,6 +29,8 @@ const FACE_MISSING_CONFIRM_FRAMES = 8;
 const FACE_VISIBLE_CONFIRM_FRAMES = 2;
 const PHONE_CONFIRM_FRAMES = 1;
 const PHONE_OBJECT_CONFIDENCE_THRESHOLD = 0.18;
+const PHONE_SHAPE_SAMPLE_WIDTH = 96;
+const PHONE_SHAPE_SAMPLE_HEIGHT = 72;
 const MEDIA_INTERVAL_MS = 5 * 60 * 1000;
 const RECORDING_DURATION_MS = 10 * 1000;
 const EXAM_DURATION_MS = 30 * 60 * 1000;
@@ -840,14 +842,116 @@ async function evaluateObjects(objects) {
         return confidence >= PHONE_OBJECT_CONFIDENCE_THRESHOLD
             && PHONE_LABELS.some((phoneLabel) => label.includes(phoneLabel));
     });
-    if (phone) {
-        const confirmed = await reportConfirmedViolation('PHONE_DETECTED', 5, 'В кадре обнаружен телефон', PHONE_CONFIRM_FRAMES);
+    const phoneShapeDetected = detectPhoneShapeHeuristic();
+    if (phone || phoneShapeDetected) {
+        const details = phone
+            ? 'В кадре обнаружен телефон'
+            : 'В кадре обнаружен предмет, похожий на телефон';
+        const confirmed = await reportConfirmedViolation('PHONE_DETECTED', 5, details, PHONE_CONFIRM_FRAMES);
         if (confirmed) {
             await failExamForPhone();
         }
     } else {
         resetViolation('PHONE_DETECTED');
     }
+}
+
+function detectPhoneShapeHeuristic() {
+    if (!camera.videoWidth || !camera.videoHeight) {
+        return false;
+    }
+
+    const sampleCanvas = detectPhoneShapeHeuristic.canvas || document.createElement('canvas');
+    detectPhoneShapeHeuristic.canvas = sampleCanvas;
+    sampleCanvas.width = PHONE_SHAPE_SAMPLE_WIDTH;
+    sampleCanvas.height = PHONE_SHAPE_SAMPLE_HEIGHT;
+    const sampleContext = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    sampleContext.drawImage(camera, 0, 0, sampleCanvas.width, sampleCanvas.height);
+
+    const image = sampleContext.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height);
+    const pixels = image.data;
+    const width = sampleCanvas.width;
+    const height = sampleCanvas.height;
+    const mask = new Uint8Array(width * height);
+    const visited = new Uint8Array(width * height);
+
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const index = y * width + x;
+            const pixelIndex = index * 4;
+            const red = pixels[pixelIndex];
+            const green = pixels[pixelIndex + 1];
+            const blue = pixels[pixelIndex + 2];
+            const brightness = (red + green + blue) / 3;
+            const contrast = Math.max(red, green, blue) - Math.min(red, green, blue);
+            const inLikelyPhoneZone = x > width * 0.38 && y > height * 0.12;
+            if (inLikelyPhoneZone && brightness < 78 && contrast < 62) {
+                mask[index] = 1;
+            }
+        }
+    }
+
+    const queue = [];
+    for (let start = 0; start < mask.length; start += 1) {
+        if (!mask[start] || visited[start]) {
+            continue;
+        }
+
+        let head = 0;
+        let count = 0;
+        let minX = width;
+        let minY = height;
+        let maxX = 0;
+        let maxY = 0;
+        queue.length = 0;
+        queue.push(start);
+        visited[start] = 1;
+
+        while (head < queue.length) {
+            const current = queue[head];
+            head += 1;
+            count += 1;
+            const x = current % width;
+            const y = Math.floor(current / width);
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+
+            const neighbors = [current - 1, current + 1, current - width, current + width];
+            neighbors.forEach((neighbor) => {
+                if (neighbor < 0 || neighbor >= mask.length || visited[neighbor] || !mask[neighbor]) {
+                    return;
+                }
+                const neighborX = neighbor % width;
+                if (Math.abs(neighborX - x) > 1) {
+                    return;
+                }
+                visited[neighbor] = 1;
+                queue.push(neighbor);
+            });
+        }
+
+        const componentWidth = maxX - minX + 1;
+        const componentHeight = maxY - minY + 1;
+        const aspectRatio = componentWidth / Math.max(1, componentHeight);
+        const fillRatio = count / Math.max(1, componentWidth * componentHeight);
+        const centerX = (minX + maxX) / 2;
+
+        if (
+            componentWidth >= width * 0.14
+            && componentHeight >= height * 0.30
+            && count >= width * height * 0.035
+            && aspectRatio >= 0.25
+            && aspectRatio <= 0.95
+            && fillRatio >= 0.38
+            && centerX >= width * 0.42
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 async function failExamForPhone() {
