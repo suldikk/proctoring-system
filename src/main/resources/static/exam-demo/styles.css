@@ -516,7 +516,8 @@ canvas {
 .fullscreen-warning,
 .screenshot-warning,
 .exam-failed-warning,
-.face-missing-warning {
+.face-missing-warning,
+.multiple-faces-warning {
     position: fixed;
     inset: 0;
     z-index: 20;
@@ -530,14 +531,16 @@ canvas {
 .fullscreen-warning[hidden],
 .screenshot-warning[hidden],
 .exam-failed-warning[hidden],
-.face-missing-warning[hidden] {
+.face-missing-warning[hidden],
+.multiple-faces-warning[hidden] {
     display: none;
 }
 
 .fullscreen-warning div,
 .screenshot-warning div,
 .exam-failed-warning div,
-.face-missing-warning div {
+.face-missing-warning div,
+.multiple-faces-warning div {
     display: grid;
     max-width: 540px;
     gap: 14px;
@@ -547,7 +550,8 @@ canvas {
 .fullscreen-warning h2,
 .screenshot-warning h2,
 .exam-failed-warning h2,
-.face-missing-warning h2 {
+.face-missing-warning h2,
+.multiple-faces-warning h2 {
     color: #ffffff;
     font-size: 28px;
 }
@@ -565,6 +569,11 @@ canvas {
 .face-missing-warning {
     z-index: 38;
     background: rgba(10, 22, 34, .92);
+}
+
+.multiple-faces-warning {
+    z-index: 38;
+    background: rgba(91, 13, 9, .92);
 }
 
 @media print {

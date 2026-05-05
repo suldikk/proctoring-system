@@ -60,6 +60,7 @@ const fullscreenWarning = document.getElementById('fullscreenWarning');
 const screenshotWarning = document.getElementById('screenshotWarning');
 const examFailedWarning = document.getElementById('examFailedWarning');
 const faceMissingWarning = document.getElementById('faceMissingWarning');
+const multipleFacesWarning = document.getElementById('multipleFacesWarning');
 const failedLogoutButton = document.getElementById('failedLogoutButton');
 const returnFullscreen = document.getElementById('returnFullscreen');
 const camera = document.getElementById('camera');
@@ -569,6 +570,7 @@ function stop(message) {
     fullscreenWarning.hidden = true;
     screenshotWarning.hidden = true;
     faceMissingWarning.hidden = true;
+    multipleFacesWarning.hidden = true;
     if (!state.examFailed) {
         examFailedWarning.hidden = true;
     }
@@ -839,15 +841,20 @@ async function evaluateFrame(faces) {
         const confirmed = await reportConfirmedViolation('FACE_NOT_DETECTED', 4, 'Лицо не обнаружено в кадре камеры');
         if (confirmed) {
             faceMissingWarning.hidden = false;
+            multipleFacesWarning.hidden = true;
         }
         return;
     }
     faceMissingWarning.hidden = true;
     if (faces.length > 1) {
-        await reportConfirmedViolation('MULTIPLE_FACES', 5, `В кадре обнаружено несколько лиц: ${faces.length}`);
+        const confirmed = await reportConfirmedViolation('MULTIPLE_FACES', 5, `В кадре обнаружено несколько лиц: ${faces.length}`);
+        if (confirmed) {
+            multipleFacesWarning.hidden = false;
+        }
         return;
     }
 
+    multipleFacesWarning.hidden = true;
     resetViolation('FACE_NOT_DETECTED');
     resetViolation('MULTIPLE_FACES');
 
