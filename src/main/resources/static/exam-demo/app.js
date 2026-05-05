@@ -22,6 +22,8 @@ const state = {
 
 const FACE_CONFIDENCE_THRESHOLD = 0.78;
 const MIN_FACE_AREA_RATIO = 0.018;
+const MEDIA_CHECK_FACE_CONFIDENCE_THRESHOLD = 0.45;
+const MEDIA_CHECK_MIN_FACE_AREA_RATIO = 0.003;
 const VIOLATION_CONFIRM_FRAMES = 3;
 const MEDIA_INTERVAL_MS = 5 * 60 * 1000;
 const RECORDING_DURATION_MS = 10 * 1000;
@@ -433,8 +435,7 @@ async function captureIdentitySnapshot() {
     try {
         await loadDetector();
         resizeMediaCheckOverlay();
-        const result = await state.human.detect(mediaCheckVideo);
-        const faces = filterMediaCheckFaces(result.face || []);
+        const faces = await detectMediaCheckFaces();
         drawMediaCheckFaces(faces);
 
         if (faces.length === 0) {
@@ -478,8 +479,24 @@ function filterMediaCheckFaces(faces) {
     return faces.filter((face) => {
         const score = typeof face.score === 'number' ? face.score : 1;
         const [, , width, height] = face.box;
-        return score >= FACE_CONFIDENCE_THRESHOLD && (width * height) / frameArea >= MIN_FACE_AREA_RATIO;
+        return score >= MEDIA_CHECK_FACE_CONFIDENCE_THRESHOLD && (width * height) / frameArea >= MEDIA_CHECK_MIN_FACE_AREA_RATIO;
     });
+}
+
+async function detectMediaCheckFaces() {
+    let strongestFrameFaces = [];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const result = await state.human.detect(mediaCheckVideo);
+        const faces = filterMediaCheckFaces(result.face || []);
+        if (faces.length > strongestFrameFaces.length) {
+            strongestFrameFaces = faces;
+        }
+        if (faces.length > 1) {
+            return faces;
+        }
+        await wait(180);
+    }
+    return strongestFrameFaces;
 }
 
 function drawMediaCheckFaces(faces) {
@@ -498,6 +515,10 @@ function mirrorMediaCheckBox(box) {
     const x = mediaCheckOverlay.width - (box[0] + box[2]) * scaleX;
     const y = box[1] * scaleY;
     return [x, y, box[2] * scaleX, box[3] * scaleY];
+}
+
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function checkExtensionAndEnterExam() {
