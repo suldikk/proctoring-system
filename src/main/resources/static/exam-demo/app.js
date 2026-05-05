@@ -27,11 +27,13 @@ const MEDIA_CHECK_MIN_FACE_AREA_RATIO = 0.003;
 const VIOLATION_CONFIRM_FRAMES = 3;
 const FACE_MISSING_CONFIRM_FRAMES = 8;
 const FACE_VISIBLE_CONFIRM_FRAMES = 2;
+const PHONE_CONFIRM_FRAMES = 2;
+const PHONE_OBJECT_CONFIDENCE_THRESHOLD = 0.18;
 const MEDIA_INTERVAL_MS = 5 * 60 * 1000;
 const RECORDING_DURATION_MS = 10 * 1000;
 const EXAM_DURATION_MS = 30 * 60 * 1000;
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
-const PHONE_LABELS = ['cell phone', 'mobile phone', 'phone', 'smartphone'];
+const PHONE_LABELS = ['cell phone', 'mobile phone', 'phone', 'smartphone', 'cellphone', 'telephone'];
 const DEMO_STUDENTS_BY_IIN = {
     '010101300123': 'student@example.com',
 };
@@ -784,7 +786,7 @@ async function loadDetector() {
         },
         body: { enabled: false },
         hand: { enabled: false },
-        object: { enabled: true, minConfidence: 0.35, maxDetected: 10 },
+        object: { enabled: true, minConfidence: PHONE_OBJECT_CONFIDENCE_THRESHOLD, maxDetected: 20 },
         gesture: { enabled: false },
     });
     await state.human.load();
@@ -834,10 +836,12 @@ function clearFaceOverlay() {
 async function evaluateObjects(objects) {
     const phone = objects.find((object) => {
         const label = String(object.label || object.class || object.name || '').toLowerCase();
-        return PHONE_LABELS.some((phoneLabel) => label.includes(phoneLabel));
+        const confidence = Number(object.score ?? object.confidence ?? object.probability ?? 1);
+        return confidence >= PHONE_OBJECT_CONFIDENCE_THRESHOLD
+            && PHONE_LABELS.some((phoneLabel) => label.includes(phoneLabel));
     });
     if (phone) {
-        const confirmed = await reportConfirmedViolation('PHONE_DETECTED', 5, 'В кадре обнаружен телефон');
+        const confirmed = await reportConfirmedViolation('PHONE_DETECTED', 5, 'В кадре обнаружен телефон', PHONE_CONFIRM_FRAMES);
         if (confirmed) {
             await failExamForPhone();
         }
