@@ -337,8 +337,7 @@ function updateReportButton() {
     if (!downloadReport) {
         return;
     }
-    const hasSubmittedResult = state.currentEvents.some((event) => event.type === 'TEST_SUBMITTED');
-    downloadReport.disabled = !state.selectedSessionId || !hasSubmittedResult;
+    downloadReport.disabled = !state.selectedSessionId;
 }
 
 function downloadExamReport() {
