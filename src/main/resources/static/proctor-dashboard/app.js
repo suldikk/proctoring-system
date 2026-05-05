@@ -3,6 +3,7 @@ const state = {
     sessions: [],
     selectedSessionId: '',
     refreshTimer: null,
+    currentEvents: [],
 };
 
 const authScreen = document.getElementById('authScreen');
@@ -10,6 +11,7 @@ const dashboardLayout = document.getElementById('dashboardLayout');
 const loginForm = document.getElementById('loginForm');
 const loginStatus = document.getElementById('loginStatus');
 const openExamAccess = document.getElementById('openExamAccess');
+const downloadReport = document.getElementById('downloadReport');
 const logoutButton = document.getElementById('logoutButton');
 const sessionsList = document.getElementById('sessions');
 const eventsList = document.getElementById('events');
@@ -36,6 +38,7 @@ loginForm.addEventListener('submit', async (event) => {
 });
 
 openExamAccess.addEventListener('click', openAccess);
+downloadReport.addEventListener('click', downloadExamReport);
 logoutButton.addEventListener('click', logout);
 
 if (state.token) {
@@ -101,6 +104,8 @@ async function logout() {
     sessionTitle.textContent = 'Сессия не выбрана';
     totalEvents.textContent = '0';
     lastUpdate.textContent = '-';
+    state.currentEvents = [];
+    updateReportButton();
     showAuth('Вы вышли из аккаунта. Введите данные проктора, чтобы открыть управление экзаменом.');
     logoutButton.disabled = false;
     logoutButton.textContent = 'Выйти';
@@ -165,6 +170,7 @@ function renderSessions() {
 
 async function selectSession(sessionId) {
     state.selectedSessionId = sessionId;
+    state.currentEvents = [];
     renderSessions();
     const session = state.sessions.find((item) => item.id === sessionId);
     sessionTitle.textContent = session ? session.examTitle : 'Выбранная сессия';
@@ -172,6 +178,7 @@ async function selectSession(sessionId) {
     openExamAccess.textContent = session && session.status === 'ACTIVE'
         ? 'Доступ открыт'
         : 'Открыть доступ к экзамену';
+    updateReportButton();
     await refreshSessionArtifacts();
 
     clearInterval(state.refreshTimer);
@@ -185,7 +192,9 @@ async function loadEvents() {
 
     const response = await api(`/api/sessions/${state.selectedSessionId}/events`);
     const events = await response.json();
+    state.currentEvents = events;
     renderEvents(events);
+    updateReportButton();
 }
 
 async function openAccess() {
@@ -322,6 +331,82 @@ function renderRecordings(chunks) {
         });
         recordingsList.append(item);
     });
+}
+
+function updateReportButton() {
+    if (!downloadReport) {
+        return;
+    }
+    const hasSubmittedResult = state.currentEvents.some((event) => event.type === 'TEST_SUBMITTED');
+    downloadReport.disabled = !state.selectedSessionId || !hasSubmittedResult;
+}
+
+function downloadExamReport() {
+    const session = state.sessions.find((item) => item.id === state.selectedSessionId);
+    if (!session) {
+        return;
+    }
+
+    const allEvents = [...state.currentEvents].sort((left, right) =>
+        new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime()
+    );
+    const violationEvents = allEvents.filter((event) => VISIBLE_EVENT_TYPES.has(event.type));
+    const resultEvent = [...allEvents].reverse().find((event) => event.type === 'TEST_SUBMITTED');
+    const score = resultEvent ? extractScore(resultEvent.details) : 'не указан';
+    const violationsByType = violationEvents.reduce((accumulator, event) => {
+        const label = eventTypeLabel(event.type);
+        accumulator[label] = (accumulator[label] || 0) + 1;
+        return accumulator;
+    }, {});
+
+    const rows = [
+        'ОТЧЕТ ПО ПРОКТОРИНГУ',
+        '',
+        `Дата формирования: ${new Date().toLocaleString()}`,
+        `ФИО студента: Аскаров Султанали`,
+        `Группа: ВТ-24б ТиПО`,
+        `Дисциплина: Java`,
+        `Экзамен: ${session.examTitle}`,
+        `ID сессии: ${session.id}`,
+        `Статус сессии: ${statusLabel(session.status)}`,
+        `Набрано баллов: ${score}`,
+        `Количество нарушений: ${violationEvents.length}`,
+        '',
+        'Нарушения по типам:',
+    ];
+
+    if (Object.keys(violationsByType).length === 0) {
+        rows.push('Нарушений не зафиксировано.');
+    } else {
+        Object.entries(violationsByType).forEach(([label, count]) => {
+            rows.push(`- ${label}: ${count}`);
+        });
+    }
+
+    rows.push('', 'Хронология событий:');
+    if (allEvents.length === 0) {
+        rows.push('Событий нет.');
+    } else {
+        allEvents.forEach((event) => {
+            rows.push(`[${new Date(event.occurredAt).toLocaleString()}] ${eventTypeLabel(event.type)} — ${event.details}`);
+        });
+    }
+
+    const reportText = rows.join('\n');
+    const blob = new Blob(['\ufeff', reportText], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `otchet-proctoring-${shortId(session.id)}.doc`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function extractScore(details) {
+    const match = details.match(/(\d+)\s+из\s+100/);
+    return match ? `${match[1]} из 100 баллов` : 'не указан';
 }
 
 function renderEmpty(message, target = sessionsList) {
