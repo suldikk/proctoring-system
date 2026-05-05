@@ -806,7 +806,7 @@ async function detectLoop() {
     const objects = result.object || [];
     clearFaceOverlay();
     await evaluateFrame(faces);
-    await evaluateObjects(objects);
+    await evaluateObjects(objects, faces);
     setTimeout(() => requestAnimationFrame(detectLoop), 650);
 }
 
@@ -835,14 +835,14 @@ function clearFaceOverlay() {
     ctx.clearRect(0, 0, overlay.width, overlay.height);
 }
 
-async function evaluateObjects(objects) {
+async function evaluateObjects(objects, faces) {
     const phone = objects.find((object) => {
         const label = String(object.label || object.class || object.name || '').toLowerCase();
         const confidence = Number(object.score ?? object.confidence ?? object.probability ?? 1);
         return confidence >= PHONE_OBJECT_CONFIDENCE_THRESHOLD
             && PHONE_LABELS.some((phoneLabel) => label.includes(phoneLabel));
     });
-    const phoneShapeDetected = detectPhoneShapeHeuristic();
+    const phoneShapeDetected = detectPhoneShapeHeuristic(faces);
     if (phone || phoneShapeDetected) {
         const details = phone
             ? 'В кадре обнаружен телефон'
@@ -856,8 +856,8 @@ async function evaluateObjects(objects) {
     }
 }
 
-function detectPhoneShapeHeuristic() {
-    if (!camera.videoWidth || !camera.videoHeight) {
+function detectPhoneShapeHeuristic(faces) {
+    if (!camera.videoWidth || !camera.videoHeight || faces.length !== 1) {
         return false;
     }
 
@@ -872,6 +872,9 @@ function detectPhoneShapeHeuristic() {
     const pixels = image.data;
     const width = sampleCanvas.width;
     const height = sampleCanvas.height;
+    const faceBox = toSampleBox(faces[0].box, width, height);
+    const faceCenterX = faceBox.x + faceBox.width / 2;
+    const faceCenterY = faceBox.y + faceBox.height / 2;
     const mask = new Uint8Array(width * height);
     const visited = new Uint8Array(width * height);
 
@@ -884,7 +887,13 @@ function detectPhoneShapeHeuristic() {
             const blue = pixels[pixelIndex + 2];
             const brightness = (red + green + blue) / 3;
             const contrast = Math.max(red, green, blue) - Math.min(red, green, blue);
-            const inLikelyPhoneZone = x > width * 0.38 && y > height * 0.12;
+            const outsideFaceCore =
+                x < faceBox.x - faceBox.width * 0.10
+                || x > faceBox.x + faceBox.width * 1.10
+                || y < faceBox.y - faceBox.height * 0.10
+                || y > faceBox.y + faceBox.height * 1.10;
+            const nearFaceHeight = y > faceBox.y - faceBox.height * 0.30 && y < faceBox.y + faceBox.height * 1.45;
+            const inLikelyPhoneZone = outsideFaceCore && nearFaceHeight;
             if (inLikelyPhoneZone && brightness < 78 && contrast < 62) {
                 mask[index] = 1;
             }
@@ -937,21 +946,52 @@ function detectPhoneShapeHeuristic() {
         const aspectRatio = componentWidth / Math.max(1, componentHeight);
         const fillRatio = count / Math.max(1, componentWidth * componentHeight);
         const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const componentArea = componentWidth * componentHeight;
+        const faceOverlapRatio = overlapArea(
+            { x: minX, y: minY, width: componentWidth, height: componentHeight },
+            faceBox
+        ) / Math.max(1, componentArea);
+        const verticalFaceOverlap = Math.min(maxY, faceBox.y + faceBox.height) - Math.max(minY, faceBox.y);
+        const horizontallyBesideFace = Math.abs(centerX - faceCenterX) > faceBox.width * 0.60;
+        const alignedWithFace = verticalFaceOverlap > faceBox.height * 0.20
+            || Math.abs(centerY - faceCenterY) < faceBox.height * 0.85;
 
         if (
             componentWidth >= width * 0.14
             && componentHeight >= height * 0.30
-            && count >= width * height * 0.035
+            && count >= width * height * 0.045
             && aspectRatio >= 0.25
             && aspectRatio <= 0.95
-            && fillRatio >= 0.38
-            && centerX >= width * 0.42
+            && fillRatio >= 0.45
+            && faceOverlapRatio <= 0.18
+            && horizontallyBesideFace
+            && alignedWithFace
         ) {
             return true;
         }
     }
 
     return false;
+}
+
+function toSampleBox(box, sampleWidth, sampleHeight) {
+    const scaleX = sampleWidth / camera.videoWidth;
+    const scaleY = sampleHeight / camera.videoHeight;
+    return {
+        x: box[0] * scaleX,
+        y: box[1] * scaleY,
+        width: box[2] * scaleX,
+        height: box[3] * scaleY,
+    };
+}
+
+function overlapArea(first, second) {
+    const left = Math.max(first.x, second.x);
+    const top = Math.max(first.y, second.y);
+    const right = Math.min(first.x + first.width, second.x + second.width);
+    const bottom = Math.min(first.y + first.height, second.y + second.height);
+    return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
 async function failExamForPhone() {
