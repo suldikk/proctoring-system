@@ -20,11 +20,13 @@ const state = {
     violationStreaks: new Map(),
 };
 
-const FACE_CONFIDENCE_THRESHOLD = 0.78;
-const MIN_FACE_AREA_RATIO = 0.018;
+const FACE_CONFIDENCE_THRESHOLD = 0.55;
+const MIN_FACE_AREA_RATIO = 0.007;
 const MEDIA_CHECK_FACE_CONFIDENCE_THRESHOLD = 0.45;
 const MEDIA_CHECK_MIN_FACE_AREA_RATIO = 0.003;
 const VIOLATION_CONFIRM_FRAMES = 3;
+const FACE_MISSING_CONFIRM_FRAMES = 8;
+const FACE_VISIBLE_CONFIRM_FRAMES = 2;
 const MEDIA_INTERVAL_MS = 5 * 60 * 1000;
 const RECORDING_DURATION_MS = 10 * 1000;
 const EXAM_DURATION_MS = 30 * 60 * 1000;
@@ -859,14 +861,21 @@ async function failExamForPhone() {
 
 async function evaluateFrame(faces) {
     if (faces.length === 0) {
-        const confirmed = await reportConfirmedViolation('FACE_NOT_DETECTED', 4, 'Лицо не обнаружено в кадре камеры');
+        resetViolation('FACE_VISIBLE');
+        const confirmed = await reportConfirmedViolation('FACE_NOT_DETECTED', 4, 'Лицо не обнаружено в кадре камеры', FACE_MISSING_CONFIRM_FRAMES);
         if (confirmed) {
             faceMissingWarning.hidden = false;
             multipleFacesWarning.hidden = true;
         }
         return;
     }
-    faceMissingWarning.hidden = true;
+
+    const visibleConfirmed = registerFrameStreak('FACE_VISIBLE', FACE_VISIBLE_CONFIRM_FRAMES);
+    if (visibleConfirmed) {
+        faceMissingWarning.hidden = true;
+        resetViolation('FACE_NOT_DETECTED');
+    }
+
     if (faces.length > 1) {
         const confirmed = await reportConfirmedViolation('MULTIPLE_FACES', 5, `В кадре обнаружено несколько лиц: ${faces.length}`);
         if (confirmed) {
@@ -876,7 +885,6 @@ async function evaluateFrame(faces) {
     }
 
     multipleFacesWarning.hidden = true;
-    resetViolation('FACE_NOT_DETECTED');
     resetViolation('MULTIPLE_FACES');
 
     const [x, y, width, height] = mirrorBox(faces[0].box);
@@ -895,10 +903,16 @@ async function evaluateFrame(faces) {
     resetViolation('FACE_NOT_CENTERED');
 }
 
-async function reportConfirmedViolation(type, severity, details) {
+function registerFrameStreak(type, confirmFrames) {
     const streak = (state.violationStreaks.get(type) || 0) + 1;
     state.violationStreaks.set(type, streak);
-    if (streak >= VIOLATION_CONFIRM_FRAMES) {
+    return streak >= confirmFrames;
+}
+
+async function reportConfirmedViolation(type, severity, details, confirmFrames = VIOLATION_CONFIRM_FRAMES) {
+    const streak = (state.violationStreaks.get(type) || 0) + 1;
+    state.violationStreaks.set(type, streak);
+    if (streak >= confirmFrames) {
         await reportViolation(type, severity, details);
         return true;
     }
